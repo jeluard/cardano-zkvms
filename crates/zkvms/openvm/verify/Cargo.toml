@@ -1,0 +1,11 @@
+[package]
+name = "openvm-verify"
+version = "0.1.0"
+edition = "2021"
+
+# Keep this crate out of the parent workspace — it's a standalone tool.
+[workspace]
+
+[dependencies]
+sha2 = "0.10"
+hex = "0.4"
