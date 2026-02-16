@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenVM UPLC Verifier</title>
+  <link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>OpenVM UPLC Verifier</h1>
+      <p>Verify that a Cardano UPLC program was honestly evaluated inside an OpenVM zkVM — entirely in your browser.</p>
+    </div>
+
+    <!-- WASM status -->
+    <div class="wasm-bar">
+      <div class="wasm-item">
+        <span id="aikenStatus" class="status-badge loading"><span class="status-dot"></span> Aiken WASM</span>
+      </div>
+      <div class="wasm-item">
+        <span id="uplcStatus" class="status-badge loading"><span class="status-dot"></span> UPLC WASM</span>
+      </div>
+      <div class="wasm-item">
+        <span id="starkStatus" class="status-badge loading"><span class="status-dot"></span> STARK Verifier</span>
+      </div>
+      <div class="wasm-item">
+        <span id="backendStatus" class="status-badge loading"><span class="status-dot"></span> Backend</span>
+      </div>
+    </div>
+
+    <!-- Pipeline -->
+    <div class="pipeline">
+      <div class="pipeline-step" id="pipeStep1">
+        <span class="step-num">1</span> Input
+      </div>
+      <div class="pipeline-connector" id="pipeConn1"></div>
+      <div class="pipeline-step" id="pipeStep2">
+        <span class="step-num">2</span> Prove
+      </div>
+      <div class="pipeline-connector" id="pipeConn2"></div>
+      <div class="pipeline-step" id="pipeStep3">
+        <span class="step-num">3</span> Commitment
+      </div>
+      <div class="pipeline-connector" id="pipeConn3"></div>
+      <div class="pipeline-step" id="pipeStep4">
+        <span class="step-num">4</span> Verify
+      </div>
+    </div>
+
+    <!-- Step 1: Program Input -->
+    <div class="step-row">
+    <div class="card" id="card1">
+      <div class="card-header">
+        <div class="card-icon">&#x039B;</div>
+        <div>
+          <h2>Program Input</h2>
+          <div class="subtitle">Compile Aiken source or provide flat-encoded UPLC hex</div>
+          <div class="exec-badges">
+            <span class="exec-badge local"><span class="exec-icon">&#x1F5A5;</span> Local &middot; WASM</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tabBtnAiken">Aiken</button>
+        <button class="tab-btn" id="tabBtnUplcHex">UPLC Hex</button>
+      </div>
+
+      <!-- Aiken Tab -->
+      <div class="tab-panel active" id="tabAiken">
+        <div class="input-group">
+          <label for="aikenSource">Aiken Source Code</label>
+          <div class="code-editor" id="codeEditor">
+            <pre class="code-highlight" aria-hidden="true"><code id="aikenHighlight"></code></pre>
+            <textarea class="code-input" id="aikenSource" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">fn fib(n: Int) -> Int {
+  if n <= 1 {
+    n
+  } else {
+    fib(n - 1) + fib(n - 2)
+  }
+}
+
+test fib_10() {
+  fib(10) == 55
+}</textarea>
+          </div>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-primary" id="compileBtn" disabled>
+            <span id="compileBtnText">Compile</span>
+          </button>
+        </div>
+        <div class="result-box" id="compileResult"></div>
+      </div>
+
+      <!-- UPLC Hex Tab -->
+      <div class="tab-panel" id="tabUplcHex">
+        <div class="input-group">
+          <label for="programHex">UPLC Program (hex-encoded flat bytes)</label>
+          <input type="text" id="programHex" placeholder="e.g. 010000481501" value="010000481501" spellcheck="false" />
+        </div>
+      </div>
+    </div>
+    <div class="step-aside">The program is the computation you want to prove was run correctly. You provide the code; the zkVM will later prove it executed honestly.</div>
+    </div>
+
+    <!-- Step 2: Evaluate & Prove -->
+    <div class="step-row">
+    <div class="card disabled" id="card2">
+      <div class="card-header">
+        <div class="card-icon">&#x26A1;</div>
+        <div>
+          <h2>Evaluate &amp; Prove</h2>
+          <div class="subtitle">Evaluate UPLC locally, then generate a STARK proof on the server</div>
+          <div class="exec-badges">
+            <span class="exec-badge local"><span class="exec-icon">&#x1F5A5;</span> Local &middot; Evaluation</span>
+            <span class="exec-badge remote"><span class="exec-icon">&#x2601;</span> Remote &middot; Proof generation</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button class="btn btn-primary" id="evalProveBtn" disabled>
+          <span id="evalProveBtnText">Evaluate &amp; Prove</span>
+        </button>
+      </div>
+
+      <div class="result-box" id="evalResult"></div>
+      <div class="result-box" id="proveResult"></div>
+      <div class="button-row" id="downloadRow" style="display:none; margin-top: 12px;">
+        <a class="btn btn-download" id="dlCommitment" download="commitment.txt">&#x2B07; Commitment</a>
+        <a class="btn btn-download" id="dlProof" download="stark-proof.bin">&#x2B07; Proof</a>
+      </div>
+    </div>
+    <div class="step-aside">Your browser runs the program to get its result. The server then re-runs it inside a zkVM, producing a cryptographic proof that the execution was correct.</div>
+    </div>
+
+    <!-- Step 3: Commitment Verification -->
+    <div class="step-row">
+    <div class="card disabled" id="card3">
+      <div class="card-header">
+        <div class="card-icon">#</div>
+        <div>
+          <h2>Commitment Verification</h2>
+          <div class="subtitle">Verify SHA-256( program || result ) matches the proof's public output</div>
+          <div class="exec-badges">
+            <span class="exec-badge local"><span class="exec-icon">&#x1F5A5;</span> Local &middot; WASM</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="expectedResult">Expected Result (the value you expect the program to produce)</label>
+        <input type="text" id="expectedResult" placeholder="e.g. Integer(42)" spellcheck="false" />
+      </div>
+
+      <div class="input-group">
+        <label for="expectedCommitment">Expected Commitment (from proof public output, hex)</label>
+        <input type="text" id="expectedCommitment" placeholder="64-char hex digest from OpenVM proof output" spellcheck="false" />
+      </div>
+
+      <div class="button-row">
+        <button class="btn btn-primary" id="commitBtn" disabled>
+          <span id="commitBtnText">Verify Commitment</span>
+        </button>
+      </div>
+
+      <div class="result-box" id="commitResult"></div>
+    </div>
+    <div class="step-aside">
+      <p>The proof commits to a hash of the program and its result. We recompute that hash locally and check it matches &mdash; this ensures the proof is about <em>this</em> specific program and result, not some other computation.</p>
+      <details class="aside-details">
+        <summary>How is the commitment computed?</summary>
+        <p>The zkVM guest computes:</p>
+        <pre class="aside-code">commitment = SHA-256( program_bytes || result_string )</pre>
+        <p>where <strong>program_bytes</strong> is the raw UPLC program (flat-encoded binary), and <strong>result_string</strong> is the text representation of the evaluation result (e.g. <code>Integer(55)</code>).</p>
+        <p>This 32-byte hash is revealed as the proof's public output. A verifier can independently re-evaluate the program, recompute the same hash, and confirm it matches &mdash; binding the proof to both the specific program <em>and</em> its output.</p>
+      </details>
+    </div>
+    </div>
+
+    <!-- Step 4: STARK Proof Verification -->
+    <div class="step-row">
+    <div class="card disabled" id="card4">
+      <div class="card-header">
+        <div class="card-icon">&#x2714;</div>
+        <div>
+          <h2>STARK Proof Verification</h2>
+          <div class="subtitle">Cryptographically verify the OpenVM STARK proof in-browser</div>
+          <div class="exec-badges">
+            <span class="exec-badge local"><span class="exec-icon">&#x1F5A5;</span> Local &middot; WASM</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="proof-info" id="proofInfo">Proof and verification key will be loaded from the prove step.</div>
+
+      <div class="button-row">
+        <button class="btn btn-primary" id="starkBtn" disabled>
+          <span id="starkBtnText">Verify STARK Proof</span>
+        </button>
+      </div>
+      <div class="result-box" id="starkResult"></div>
+    </div>
+    <div class="step-aside">The final check: your browser mathematically verifies the proof. No trust in any server is required &mdash; if it passes, you have cryptographic certainty the program ran correctly.</div>
+    </div>
+
+    <!-- Final Verdict -->
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <script type="module" src="./assets/index.js"></script>
+</body>
+</html>

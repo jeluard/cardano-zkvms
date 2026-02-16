@@ -43,3 +43,7 @@ Example:
 # Switch from uplc-turbo-riscv to uplc-turbo
 uplc = { path = "../../uplc", features = ["uplc-turbo"] }
 ```
+
+# Web
+
+Leverages [openvm-wasm-stark-verifier](https://github.com/ethproofs/openvm-wasm-stark-verifier)

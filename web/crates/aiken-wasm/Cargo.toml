@@ -1,0 +1,23 @@
+[package]
+name = "aiken-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "Aiken → UPLC flat hex compiler for browser WASM"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+aiken-lang = { git = "https://github.com/aiken-lang/aiken.git", tag = "v1.1.17" }
+uplc = { git = "https://github.com/aiken-lang/aiken.git", tag = "v1.1.17" }
+getrandom = { version = "0.2", features = ["js"] }
+indexmap = "1.9"
+
+[profile.release]
+opt-level = "s"
+lto = true
