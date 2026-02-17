@@ -1,7 +1,7 @@
+use super::{decode_program_hex, make_result};
+use crate::{UplcError, UplcEvaluator};
 use alloc::boxed::Box;
 use alloc::format;
-use crate::{UplcError, UplcEvaluator};
-use super::{decode_program_hex, make_result};
 
 #[cfg(all(feature = "uplc-turbo", not(feature = "uplc-turbo-riscv")))]
 use uplc_turbo;
@@ -9,6 +9,7 @@ use uplc_turbo;
 use uplc_turbo_riscv as uplc_turbo;
 
 use uplc_turbo::{arena::Arena, binder::DeBruijn, flat};
+#[derive(Default)]
 pub struct UplcTurboEvaluator;
 
 impl UplcTurboEvaluator {
@@ -35,10 +36,9 @@ impl UplcEvaluator for UplcTurboEvaluator {
         let result_constant = match &result_term {
             uplc_turbo::term::Term::Constant(c) => c,
             _ => {
-                return Err(UplcError::ResultError(
-                    "Evaluation result is not a constant".into(),
-                )
-                .into());
+                return Err(
+                    UplcError::ResultError("Evaluation result is not a constant".into()).into(),
+                );
             }
         };
 

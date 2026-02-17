@@ -143,6 +143,9 @@ esbuild.build({
   format: 'esm',
   sourcemap: !isProduction,
   minify: isProduction,
+  define: {
+    'BACKEND_URL_CONFIG': JSON.stringify(process.env.BACKEND_URL || '/'),
+  },
   plugins: [copyAssetsPlugin, copyHtmlPlugin, copyDataPlugin, patchOpenVMVerifierPlugin],
   external: [
     '../uplc/*',

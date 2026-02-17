@@ -1,17 +1,18 @@
 #[cfg(feature = "uplc-aiken")]
-use alloc::boxed::Box;
-#[cfg(feature = "uplc-aiken")]
-use alloc::format;
+use super::{decode_program_hex, make_result};
 #[cfg(feature = "uplc-aiken")]
 use crate::{UplcError, UplcEvaluator};
 #[cfg(feature = "uplc-aiken")]
-use super::{decode_program_hex, make_result};
+use alloc::boxed::Box;
+#[cfg(feature = "uplc-aiken")]
+use alloc::format;
 #[cfg(feature = "uplc-aiken")]
 use uplc_aiken::ast::{DeBruijn, Program, Term};
 #[cfg(feature = "uplc-aiken")]
 use uplc_aiken::machine::cost_model::ExBudget;
 
 #[cfg(feature = "uplc-aiken")]
+#[derive(Default)]
 pub struct UplcAikenEvaluator;
 
 #[cfg(feature = "uplc-aiken")]
@@ -40,17 +41,13 @@ impl UplcEvaluator for UplcAikenEvaluator {
         let result_constant = match &result_term {
             Term::Constant(c) => c,
             _ => {
-                return Err(UplcError::ResultError(
-                    "Evaluation result is not a constant".into(),
-                )
-                .into());
+                return Err(
+                    UplcError::ResultError("Evaluation result is not a constant".into()).into(),
+                );
             }
         };
 
-        let result = make_result(
-            result_constant.to_pretty(),
-            Some(format!("{:?}", cost)),
-        );
+        let result = make_result(result_constant.to_pretty(), Some(format!("{:?}", cost)));
 
         Ok(Box::new(result))
     }

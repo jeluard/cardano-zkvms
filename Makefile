@@ -95,14 +95,14 @@ verify-wrong: $(VERIFY_BIN) ## Verify with a WRONG expected result (should fail)
 #   • esbuild.config.js — esbuild bundler configuration
 #   • package.json    — npm dependencies and build scripts
 #
-# `make web-build` compiles UPLC WASM. `make aiken-build` compiles Aiken WASM.
+# `make uplc-build` compiles UPLC WASM. `make aiken-build` compiles Aiken WASM.
 # `make esbuild` bundles assets with esbuild.
 # `make web-serve` starts a local HTTP server on port 8080.
 #
 
 WEB_DIR := $(ROOT_DIR)/web
 
-.PHONY: web-build aiken-build openvm-verifier-build npm-install esbuild web-serve web web-backend backend-build backend-linux backend-package setup-linux
+.PHONY: uplc-build aiken-build openvm-verifier-build npm-install esbuild web-serve web web-with-backend backend-build backend-linux backend-package setup-linux
 
 BACKEND_BIN := $(WEB_DIR)/crates/backend/target/release/openvm-web-backend
 BACKEND_LINUX_BIN := $(WEB_DIR)/crates/backend/target/x86_64-unknown-linux-gnu/release/openvm-web-backend
@@ -188,7 +188,7 @@ backend-package: backend-build ## Package backend binary for deployment
 	@echo "  tar -xzf /tmp/openvm-backend.tar.gz"
 	@echo "  scp openvm-backend/* user@remote:/path/to/deployment/"
 
-web-build: ## Build the UPLC WASM module for the browser verifier
+uplc-build: ## Build the UPLC WASM module for the browser verifier
 	@echo "──────────────────────────────────────────────"
 	@echo " Building UPLC WASM module"
 	@echo "──────────────────────────────────────────────"
@@ -226,13 +226,14 @@ esbuild: npm-install ## Bundle assets with esbuild (replaces patch script)
 	cd $(WEB_DIR) && npm run build:prod
 	@echo ""
 
+
 web-serve: ## Serve the web verifier from dist/ on http://localhost:8080 (static only, no proof generation)
 	@echo "──────────────────────────────────────────────"
 	@echo " Serving web verifier at http://localhost:8080"
 	@echo "──────────────────────────────────────────────"
 	cd $(WEB_DIR)/dist && python3 -m http.server 8080
 
-web-backend: web-build aiken-build openvm-verifier-build esbuild ## Build all WASM + esbuild bundle + backend, then serve with proof generation
+web-with-backend: uplc-build aiken-build openvm-verifier-build esbuild ## Build all WASM + esbuild bundle + backend, then serve with proof generation
 	@echo "──────────────────────────────────────────────"
 	@echo " Building Rust backend with integrated check-vk"
 	@echo "──────────────────────────────────────────────"
@@ -246,7 +247,7 @@ web-backend: web-build aiken-build openvm-verifier-build esbuild ## Build all WA
 		OPENVM_STATIC_DIR="$(WEB_DIR)/dist" \
 		cargo run --release
 
-web: web-build aiken-build openvm-verifier-build esbuild web-serve ## Build WASM + esbuild bundle and serve
+web: uplc-build aiken-build openvm-verifier-build esbuild web-serve ## Build WASM + esbuild bundle and serve
 
 # ---------------------------------------------------------------------------
 # Cleanup

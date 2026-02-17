@@ -729,3 +729,109 @@ textarea {
   color: var(--text-dim);
   word-break: break-all;
 }
+
+/* UPLC Preview Display */
+.uplc-preview {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  max-height: 500px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Button secondary style */
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-light);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--border-bright);
+  color: var(--text-bright);
+  background: var(--bg-card);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--border-dark);
+}
+
+/* Backend Unavailability Banner */
+.backend-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
+  border-bottom: 2px solid #d2691e;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  display: none;
+}
+
+.backend-banner.visible {
+  display: block;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.banner-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.banner-text {
+  flex: 1;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.banner-text strong {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.banner-text p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.banner-close {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.4rem;
+  padding: 0;
+  flex-shrink: 0;
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.banner-close:hover {
+  opacity: 1;
+}

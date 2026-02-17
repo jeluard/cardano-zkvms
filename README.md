@@ -46,4 +46,20 @@ uplc = { path = "../../uplc", features = ["uplc-turbo"] }
 
 # Web
 
-Leverages [openvm-wasm-stark-verifier](https://github.com/ethproofs/openvm-wasm-stark-verifier)
+A simple web UI that allows to prove some UPLC program execution then verify it in your browser.
+
+Leverages [openvm-wasm-stark-verifier](https://github.com/ethproofs/openvm-wasm-stark-verifier) for WASM verification.
+
+## Building & Running
+
+```bash
+cd web
+npm install
+npm run dev       # Start development server with watch mode
+npm run build     # Debug build
+npm run build:prod  # Production build with minification
+```
+
+## Deployment
+
+The web UI is automatically deployed to GitHub Pages via GitHub Actions on every push to `main`.

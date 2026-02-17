@@ -9,6 +9,8 @@ let lastUserPublicValues = null;
 let backendAvailable = false;
 let activeTab = 'aiken';
 let aikenCompiled = false;
+let compiledHex = null;  // Hex from successful Aiken compilation
+let backendStatus = 'unknown';  // 'unknown' | 'available' | 'unavailable'
 let proveAbort = null;   // AbortController for in-flight prove request
 let proveGeneration = 0; // bumped each run to detect stale callbacks
 let busy = false;        // true while an async action is running
@@ -22,6 +24,8 @@ const stepDone = [false, false, false, false];
 // ——— Client-side proof processing ———
 import { constructVmStarkVk, processProof, initZstd } from './proof-utils.js';
 import { highlightAiken } from './aiken-highlight.js';
+import { highlightUplc } from './uplc-highlight.js';
+import { config } from './config.js';
 
 async function loadAggVk() {
   try {
@@ -72,17 +76,23 @@ async function loadAikenWasm() {
 
 async function checkBackend() {
   try {
-    const resp = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
+    const resp = await fetch(config.apiUrl('/api/health'), { signal: AbortSignal.timeout(3000) });
     if (resp.ok) {
       backendAvailable = true;
+      backendStatus = 'available';
       setStatus('backendStatus', 'ready', 'Backend');
+      hideBackendBanner();
+      updateProofUIVisibility();
       updateSteps();
     } else {
       throw new Error('not ok');
     }
   } catch (e) {
     backendAvailable = false;
+    backendStatus = 'unavailable';
     setStatus('backendStatus', 'error', 'Backend');
+    showBackendBanner();
+    updateProofUIVisibility();
     updateSteps();
   }
 }
@@ -118,8 +128,8 @@ function updateSteps() {
   // Step 1 card: always enabled
   setCardState('card1', true, s1ok);
 
-  // Step 2: enabled if step 1 complete + UPLC WASM + backend
-  const s2ready = s1ok && uplcWasm && backendAvailable;
+  // Step 2: enabled if step 1 complete + UPLC WASM (backend optional; evaluate works locally)
+  const s2ready = s1ok && uplcWasm;
   setCardState('card2', s2ready, stepDone[1]);
   document.getElementById('evalProveBtn').disabled = busy || !s2ready;
 
@@ -175,11 +185,19 @@ function resetFrom(step) {
     lastUserPublicValues = null;
     starkProofBytes = null;
     starkVkBytes = null;
+    aikenCompiled = false;
+    compiledHex = null;
+    document.getElementById('toggleUplcPreview').disabled = true;
+    // Reset UPLC preview state
+    const previewContainer = document.getElementById('uplcPreviewContainer');
+    previewContainer.style.display = 'none';
+    document.getElementById('toggleUplcPreview').innerHTML = '<span id="toggleUplcPreviewText">▸ Show UPLC</span>';
+    document.getElementById('uplcPreview').textContent = 'No program yet. Compile Aiken source or provide UPLC hex to see the human-readable form.';
     hideResult('evalResult');
     hideResult('proveResult');
     document.getElementById('downloadRow').style.display = 'none';
     document.getElementById('proofInfo').textContent = '';
-    document.getElementById('evalProveBtnText').textContent = 'Evaluate & Prove';
+    document.getElementById('evalProveBtnText').innerHTML = getEvalButtonText();
   }
   if (step <= 2) hideResult('commitResult');
   if (step <= 3) hideResult('starkResult');
@@ -191,15 +209,85 @@ function hideResult(id) {
   document.getElementById(id).className = 'result-box';
 }
 
+// Get the current program hex based on active tab
+function getCurrentHex() {
+  if (activeTab === 'aiken' && compiledHex) {
+    return compiledHex;
+  }
+  return document.getElementById('programHex').value.trim();
+}
+
 function switchTab(tab) {
   activeTab = tab;
   document.getElementById('tabBtnAiken').classList.toggle('active', tab === 'aiken');
   document.getElementById('tabBtnUplcHex').classList.toggle('active', tab === 'uplcHex');
   document.getElementById('tabAiken').classList.toggle('active', tab === 'aiken');
   document.getElementById('tabUplcHex').classList.toggle('active', tab === 'uplcHex');
-  resetFrom(1);
+  
+  // Handle UPLC preview state based on tab
+  const toggle = document.getElementById('toggleUplcPreview');
+  const previewContainer = document.getElementById('uplcPreviewContainer');
+  
+  // Always hide preview and reset button when switching tabs
+  previewContainer.style.display = 'none';
+  toggle.innerHTML = '<span id="toggleUplcPreviewText">▸ Show UPLC</span>';
+  document.getElementById('uplcPreview').textContent = 'No program yet. Compile Aiken source or provide UPLC hex to see the human-readable form.';
+  
+  if (tab === 'uplcHex') {
+    // On hex tab: enable toggle if hex is provided
+    const hexValue = document.getElementById('programHex').value.trim();
+    toggle.disabled = !hexValue;
+  } else if (tab === 'aiken') {
+    // On Aiken tab: enable toggle only if Aiken was compiled
+    toggle.disabled = !aikenCompiled;
+  }
+  
   updateSteps();
 };
+
+// ——— UPLC Display ———
+
+function updateUplcDisplay() {
+  const preview = document.getElementById('uplcPreview');
+  
+  // Determine which hex to display based on active tab
+  const hex = getCurrentHex();
+  
+  if (!hex) {
+    preview.textContent = 'No program yet. Compile Aiken source or provide UPLC hex to see the human-readable form.';
+    return;
+  }
+  
+  if (!uplcWasm) {
+    preview.textContent = 'UPLC WASM module not yet loaded...';
+    return;
+  }
+  
+  try {
+    // Convert hex to human-readable UPLC
+    const readable = uplcWasm.hex_to_uplc(hex);
+    // Apply syntax highlighting
+    const highlighted = highlightUplc(readable);
+    preview.innerHTML = highlighted;
+  } catch (e) {
+    preview.textContent = `Error converting hex to UPLC: ${escapeHtml(String(e))}`;
+  }
+}
+
+function toggleUplcPreview() {
+  const container = document.getElementById('uplcPreviewContainer');
+  const btn = document.getElementById('toggleUplcPreview');
+  const isVisible = container.style.display !== 'none';
+  
+  if (isVisible) {
+    container.style.display = 'none';
+    btn.innerHTML = '<span id="toggleUplcPreviewText">▸ Show UPLC</span>';
+  } else {
+    container.style.display = 'block';
+    btn.innerHTML = '<span id="toggleUplcPreviewText">▾ Hide UPLC</span>';
+    updateUplcDisplay();  // Render preview when showing
+  }
+}
 
 // ——— Aiken Compilation ———
 
@@ -220,8 +308,10 @@ async function compileAiken() {
     const t0 = performance.now();
     const hex = aikenWasm.compile_to_uplc_hex(source);
     const dt = performance.now() - t0;
-    document.getElementById('programHex').value = hex;
+    compiledHex = hex;  // Store the compiled hex (don't overwrite programHex input)
     aikenCompiled = true;
+    updateUplcDisplay();  // Update the UPLC preview with compiled hex
+    document.getElementById('toggleUplcPreview').disabled = false;  // Enable the Show UPLC button
     updateSteps();
     showResult('compileResult', 'success',
       `<div class="result-label">Compiled to UPLC</div>` +
@@ -230,6 +320,7 @@ async function compileAiken() {
     );
   } catch (e) {
     aikenCompiled = false;
+    compiledHex = null;
     updateSteps();
     showResult('compileResult', 'error',
       `<div class="result-label">Compilation Failed</div>` +
@@ -243,10 +334,16 @@ async function compileAiken() {
 // ——— Step 2: Evaluation & Proof Generation ———
 
 async function runEvaluateAndProve() {
-  const hex = document.getElementById('programHex').value.trim();
+  const hex = getCurrentHex();
   if (!hex) return;
 
-  resetFrom(1);
+  // On Aiken tab, preserve compilation state by resetting from step 2 only
+  // On hex tab, reset from step 1 to clear input state
+  if (activeTab === 'aiken' && aikenCompiled) {
+    resetFrom(2);
+  } else {
+    resetFrom(1);
+  }
   const myGeneration = ++proveGeneration;
   const abort = new AbortController();
   proveAbort = abort;
@@ -278,18 +375,30 @@ async function runEvaluateAndProve() {
     );
     busy = false;
     updateSteps();
-    document.getElementById('evalProveBtnText').textContent = 'Evaluate & Prove';
+    document.getElementById('evalProveBtnText').innerHTML = getEvalButtonText();
     return;
   }
 
-  // 2. Request proof generation from backend
+  // 2. Request proof generation from backend (if available)
+  if (!backendAvailable) {
+    showResult('proveResult', 'info',
+      `<div class="result-label">Proof Generation</div>` +
+      `<div class="result-value">Backend unavailable. Evaluation complete, but proof generation skipped.</div>`
+    );
+    stepDone[1] = true;
+    busy = false;
+    updateSteps();
+    document.getElementById('evalProveBtnText').innerHTML = getEvalButtonText();
+    return;
+  }
+
   showResult('proveResult', 'info',
     `<div class="result-label">Proof Generation</div>` +
     `<div class="result-value">Generating STARK proof on server… this may take a while.</div>`
   );
 
   try {
-    const resp = await fetch('/api/prove', {
+    const resp = await fetch(config.apiUrl('/api/prove'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ program_hex: hex }),
@@ -307,7 +416,7 @@ async function runEvaluateAndProve() {
       );
       busy = false;
       updateSteps();
-      document.getElementById('evalProveBtnText').textContent = 'Evaluate & Prove';
+      document.getElementById('evalProveBtnText').innerHTML = getEvalButtonText();
       return;
     }
 
@@ -322,7 +431,7 @@ async function runEvaluateAndProve() {
       stepDone[1] = true;
       busy = false;
       updateSteps();
-      document.getElementById('evalProveBtnText').textContent = 'Evaluate & Prove';
+      document.getElementById('evalProveBtnText').innerHTML = getEvalButtonText();
       return;
     }
 
@@ -408,7 +517,7 @@ async function runEvaluateAndProve() {
   if (myGeneration !== proveGeneration) return; // stale
   busy = false;
   updateSteps();
-  document.getElementById('evalProveBtnText').textContent = 'Evaluate & Prove';
+  document.getElementById('evalProveBtnText').innerHTML = getEvalButtonText();
 };
 
 // ——— Step 3: Commitment Verification ———
@@ -420,7 +529,7 @@ function runCommitmentCheck() {
 
   resetFrom(2);
 
-  const hex = document.getElementById('programHex').value.trim();
+  const hex = getCurrentHex();
   const expectedResult = document.getElementById('expectedResult').value.trim();
   const expectedCommitment = document.getElementById('expectedCommitment').value.trim().toLowerCase();
 
@@ -575,6 +684,56 @@ function setPipeFail(step) {
   el.classList.add('fail');
 }
 
+// ——— Backend Banner ———
+
+function showBackendBanner() {
+  const banner = document.getElementById('backendBanner');
+  if (banner) banner.classList.add('visible');
+}
+
+function hideBackendBanner() {
+  const banner = document.getElementById('backendBanner');
+  if (banner) banner.classList.remove('visible');
+}
+
+function updateProofUIVisibility() {
+  const isBackendAvailable = backendStatus === 'available';
+  
+  // Update button text and title
+  const btnText = document.getElementById('evalProveBtnText');
+  const step2Title = document.getElementById('step2Title');
+  if (btnText) {
+    const newText = isBackendAvailable ? 'Evaluate &amp; Prove' : 'Evaluate';
+    if (btnText.textContent === 'Evaluate & Prove' || btnText.innerHTML.includes('Evaluate')) {
+      btnText.innerHTML = newText;
+    }
+  }
+  if (step2Title) {
+    step2Title.innerHTML = isBackendAvailable ? 'Evaluate &amp; Prove' : 'Evaluate';
+  }
+  
+  // Hide/show proof-related elements
+  const proofElements = [
+    'step2Subtitle',     // "Evaluate UPLC locally, then generate a STARK proof on the server"
+    'proofBadge',        // Remote badge
+    'proveResult',       // Proof result box
+    'step2Aside',        // Aside text about zkVM
+    'step3Row',          // Commitment verification step
+    'step4Row'           // STARK verification step
+  ];
+  
+  proofElements.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.display = isBackendAvailable ? '' : 'none';
+    }
+  });
+}
+
+function getEvalButtonText() {
+  return backendAvailable ? 'Evaluate &amp; Prove' : 'Evaluate';
+}
+
 // ——— Helpers ———
 
 function showResult(id, type, html) {
@@ -642,22 +801,31 @@ aikenTA.addEventListener('keydown', (e) => {
 syncHighlight();
 
 document.getElementById('programHex').addEventListener('input', () => {
+  const hexValue = document.getElementById('programHex').value.trim();
   resetFrom(1);
+  // Enable toggle button only if we're on the uplcHex tab and hex is provided
+  if (activeTab === 'uplcHex') {
+    document.getElementById('toggleUplcPreview').disabled = !hexValue;
+  }
+  updateUplcDisplay();  // Update UPLC display when hex changes
   updateSteps();
 });
 
 // Button event listeners
 document.getElementById('tabBtnAiken').addEventListener('click', () => switchTab('aiken'));
 document.getElementById('tabBtnUplcHex').addEventListener('click', () => switchTab('uplcHex'));
+document.getElementById('toggleUplcPreview').addEventListener('click', toggleUplcPreview);
 document.getElementById('compileBtn').addEventListener('click', compileAiken);
 document.getElementById('evalProveBtn').addEventListener('click', runEvaluateAndProve);
 document.getElementById('commitBtn').addEventListener('click', runCommitmentCheck);
 document.getElementById('starkBtn').addEventListener('click', runStarkVerification);
+document.getElementById('bannerCloseBtn')?.addEventListener('click', hideBackendBanner);
 
 loadUplcWasm();
 loadAikenWasm();
 loadStarkWasm();
 loadAggVk();
 loadZstd();
+updateProofUIVisibility();  // Set initial visibility based on backendStatus
 checkBackend();
 updateSteps();

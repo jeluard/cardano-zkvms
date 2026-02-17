@@ -52,3 +52,20 @@ pub fn compute_commitment(program_hex: &str, result_str: &str) -> Result<String,
 
     Ok(hex::encode(hash))
 }
+
+/// Convert a hex-encoded flat UPLC program to human-readable form.
+///
+/// Returns a formatted display of the program structure.
+#[wasm_bindgen]
+pub fn hex_to_uplc(program_hex: &str) -> Result<String, JsValue> {
+    let program_bytes = hex::decode(program_hex.trim())
+        .map_err(|e| JsValue::from_str(&format!("Hex decode error: {}", e)))?;
+
+    let arena = Arena::new();
+
+    let program: &uplc_turbo::program::Program<DeBruijn> =
+        flat::decode(&arena, &program_bytes)
+            .map_err(|e| JsValue::from_str(&format!("Program decode error: {:?}", e)))?;
+
+    Ok(format!("{:#?}", program))
+}

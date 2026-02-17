@@ -7,6 +7,18 @@
   <link rel="stylesheet" href="./assets/style.css">
 </head>
 <body>
+  <!-- Backend Unavailability Banner -->
+  <div id="backendBanner" class="backend-banner">
+    <div class="banner-content">
+      <span class="banner-icon">⚠️</span>
+      <div class="banner-text">
+        <strong>Backend Unavailable</strong>
+        <p>Proof generation requires the OpenVM backend server. Check that the server is running and accessible.</p>
+      </div>
+      <button class="banner-close" id="bannerCloseBtn">✕</button>
+    </div>
+  </div>
+
   <div class="container">
     <!-- Header -->
     <div class="header">
@@ -102,21 +114,34 @@ test fib_10() {
           <input type="text" id="programHex" placeholder="e.g. 010000481501" value="010000481501" spellcheck="false" />
         </div>
       </div>
+
+      <!-- UPLC Display Toggle & Preview -->
+      <div class="button-row" style="margin-top: 12px;">
+        <button class="btn btn-secondary" id="toggleUplcPreview" disabled>
+          <span id="toggleUplcPreviewText">▸ Show UPLC</span>
+        </button>
+      </div>
+      <div id="uplcPreviewContainer" style="display: none; margin-top: 12px;">
+        <div class="input-group">
+          <label for="uplcPreview">Human-Readable UPLC</label>
+          <pre id="uplcPreview" class="uplc-preview">No program yet. Compile Aiken source or provide UPLC hex to see the human-readable form.</pre>
+        </div>
+      </div>
     </div>
     <div class="step-aside">The program is the computation you want to prove was run correctly. You provide the code; the zkVM will later prove it executed honestly.</div>
     </div>
 
     <!-- Step 2: Evaluate & Prove -->
-    <div class="step-row">
+    <div class="step-row" id="step2Row">
     <div class="card disabled" id="card2">
       <div class="card-header">
         <div class="card-icon">&#x26A1;</div>
         <div>
-          <h2>Evaluate &amp; Prove</h2>
-          <div class="subtitle">Evaluate UPLC locally, then generate a STARK proof on the server</div>
+          <h2 id="step2Title">Evaluate &amp; Prove</h2>
+          <div class="subtitle" id="step2Subtitle">Evaluate UPLC locally, then generate a STARK proof on the server</div>
           <div class="exec-badges">
             <span class="exec-badge local"><span class="exec-icon">&#x1F5A5;</span> Local &middot; Evaluation</span>
-            <span class="exec-badge remote"><span class="exec-icon">&#x2601;</span> Remote &middot; Proof generation</span>
+            <span class="exec-badge remote" id="proofBadge"><span class="exec-icon">&#x2601;</span> Remote &middot; Proof generation</span>
           </div>
         </div>
       </div>
@@ -134,11 +159,11 @@ test fib_10() {
         <a class="btn btn-download" id="dlProof" download="stark-proof.bin">&#x2B07; Proof</a>
       </div>
     </div>
-    <div class="step-aside">Your browser runs the program to get its result. The server then re-runs it inside a zkVM, producing a cryptographic proof that the execution was correct.</div>
+    <div class="step-aside" id="step2Aside">Your browser runs the program to get its result. The server then re-runs it inside a zkVM, producing a cryptographic proof that the execution was correct.</div>
     </div>
 
     <!-- Step 3: Commitment Verification -->
-    <div class="step-row">
+    <div class="step-row" id="step3Row">
     <div class="card disabled" id="card3">
       <div class="card-header">
         <div class="card-icon">#</div>
@@ -182,7 +207,7 @@ test fib_10() {
     </div>
 
     <!-- Step 4: STARK Proof Verification -->
-    <div class="step-row">
+    <div class="step-row" id="step4Row">
     <div class="card disabled" id="card4">
       <div class="card-header">
         <div class="card-icon">&#x2714;</div>

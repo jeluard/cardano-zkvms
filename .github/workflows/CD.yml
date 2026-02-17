@@ -1,8 +1,17 @@
-name: CD - Deploy Web to GitHub Pages
+name: CD - Build & Deploy
 
 on:
   release:
     types: [published, created]
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/**'
+      - 'crates/**'
+      - '.github/workflows/CD.yml'
+      - 'Makefile'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,7 +24,7 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    name: Build and Deploy Web Verifier
+    name: Build and Deploy
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,18 +35,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Install wasm-pack
-        run: curl https://rustwasm.org/wasm-pack/installer/init.sh -sSf | sh
+        run: cargo install wasm-pack
 
       - name: Install build dependencies
         run: |
@@ -78,25 +85,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-npm-
 
-      - name: Build web verifier
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Build full stack
         run: |
           export CC=clang AR=llvm-ar
-          make web-build aiken-build openvm-verifier-build esbuild
+          make uplc-build aiken-build openvm-verifier-build esbuild
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v4
         with:
-          path: 'web/dist'
+          path: web/dist
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
 
-      - name: Release note
+      - name: Build summary
         run: |
-          echo "✅ Web verifier deployed to GitHub Pages"
-          echo "📦 Release: ${{ github.event.release.tag_name }}"
+          echo "✅ Deployment successful"
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "📦 Release: ${{ github.event.release.tag_name }}"
+          fi
           echo "🔗 URL: ${{ steps.deployment.outputs.page_url }}"
+
