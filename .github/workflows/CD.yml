@@ -91,12 +91,18 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+      - name: Validate backend URL secret
+        run: |
+          if [ -z "${{ secrets.BACKEND_URL_PROD }}" ]; then
+            echo "❌ ERROR: BACKEND_URL_PROD secret is not set"
+            echo "Set it via: gh secret set BACKEND_URL_PROD"
+            exit 1
+          fi
+          echo "✓ BACKEND_URL_PROD secret is configured"
+
       - name: Build full stack
         env:
-          # Use GitHub Secret for production backend URL
-          # Set via: Settings → Secrets and variables → Actions → New repository secret
-          # Variable name: BACKEND_URL_PROD
-          BACKEND_URL: ${{ secrets.BACKEND_URL_PROD || '/' }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL_PROD }}
         run: |
           export CC=clang AR=llvm-ar
           make uplc-build aiken-build openvm-verifier-build esbuild
