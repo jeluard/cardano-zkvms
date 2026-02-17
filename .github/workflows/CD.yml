@@ -35,6 +35,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate backend URL secret
+        run: |
+          if [ -z "${{ secrets.BACKEND_URL_PROD }}" ]; then
+            echo "❌ ERROR: BACKEND_URL_PROD secret is not set"
+            echo "Set it via: gh secret set BACKEND_URL_PROD"
+            exit 1
+          fi
+          echo "✓ BACKEND_URL_PROD secret is configured"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -90,15 +99,6 @@ jobs:
 
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Validate backend URL secret
-        run: |
-          if [ -z "${{ secrets.BACKEND_URL_PROD }}" ]; then
-            echo "❌ ERROR: BACKEND_URL_PROD secret is not set"
-            echo "Set it via: gh secret set BACKEND_URL_PROD"
-            exit 1
-          fi
-          echo "✓ BACKEND_URL_PROD secret is configured"
 
       - name: Build full stack
         env:
