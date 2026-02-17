@@ -12,7 +12,7 @@
     base.href = baseHref;
     document.head.insertBefore(base, document.head.firstChild);
   </script>
-  <title>OpenVM UPLC Verifier</title>
+  <title>ZK UPLC Verifier</title>
   <link rel="stylesheet" href="./assets/style.css">
 </head>
 <body>
@@ -22,7 +22,7 @@
       <span class="banner-icon">⚠️</span>
       <div class="banner-text">
         <strong>Backend Unavailable</strong>
-        <p>Proof generation requires the OpenVM backend server. Check that the server is running and accessible.</p>
+        <p>Proof generation requires the backend server. Check that the server is running and accessible.</p>
       </div>
       <button class="banner-close" id="bannerCloseBtn">✕</button>
     </div>
@@ -31,8 +31,8 @@
   <div class="container">
     <!-- Header -->
     <div class="header">
-      <h1>OpenVM UPLC Verifier</h1>
-      <p>Verify that a Cardano UPLC program was honestly evaluated inside an OpenVM zkVM — entirely in your browser.</p>
+      <h1>ZK UPLC Verifier</h1>
+      <p>Verify that a Cardano UPLC program was honestly evaluated inside a ZK UPLC zkVM — entirely in your browser.</p>
     </div>
 
     <!-- WASM status -->
@@ -192,7 +192,7 @@ test fib_10() {
 
       <div class="input-group">
         <label for="expectedCommitment">Expected Commitment (from proof public output, hex)</label>
-        <input type="text" id="expectedCommitment" placeholder="64-char hex digest from OpenVM proof output" spellcheck="false" />
+        <input type="text" id="expectedCommitment" placeholder="64-char hex digest from proof output" spellcheck="false" />
       </div>
 
       <div class="button-row">
@@ -222,7 +222,7 @@ test fib_10() {
         <div class="card-icon">&#x2714;</div>
         <div>
           <h2>STARK Proof Verification</h2>
-          <div class="subtitle">Cryptographically verify the OpenVM STARK proof in-browser</div>
+          <div class="subtitle">Cryptographically verify the STARK proof in-browser</div>
           <div class="exec-badges">
             <span class="exec-badge local"><span class="exec-icon">&#x1F5A5;</span> Local &middot; WASM</span>
           </div>

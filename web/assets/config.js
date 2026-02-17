@@ -1,5 +1,5 @@
 /**
- * Runtime configuration for the OpenVM UPLC Verifier.
+ * Runtime configuration for the ZK UPLC Verifier.
  *
  * Can be customized via:
  * 1. Environment variables at build time (NODE_ENV, BACKEND_URL)
