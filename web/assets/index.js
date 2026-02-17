@@ -29,7 +29,7 @@ import { config } from './config.js';
 
 async function loadAggVk() {
   try {
-    const resp = await fetch('/data/agg_stark.vk');
+    const resp = await fetch('data/agg_stark.vk');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const buf = await resp.arrayBuffer();
     aggVkBytes = new Uint8Array(buf);
@@ -337,12 +337,21 @@ async function runEvaluateAndProve() {
   const hex = getCurrentHex();
   if (!hex) return;
 
-  // On Aiken tab, preserve compilation state by resetting from step 2 only
-  // On hex tab, reset from step 1 to clear input state
+  // Clear previous evaluation/proof results
+  // On Aiken tab with compilation, preserve the compiled state
+  // On other cases, clear everything including previous compilations
   if (activeTab === 'aiken' && aikenCompiled) {
     resetFrom(2);
   } else {
     resetFrom(1);
+  }
+  
+  // Re-enable toggle on hex tab if hex input is available
+  if (activeTab === 'uplcHex') {
+    const hexValue = document.getElementById('programHex').value.trim();
+    if (hexValue) {
+      document.getElementById('toggleUplcPreview').disabled = false;
+    }
   }
   const myGeneration = ++proveGeneration;
   const abort = new AbortController();

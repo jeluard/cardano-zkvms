@@ -3,6 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // Dynamically set base href based on environment
+    const hostname = window.location.hostname;
+    const isGitHubPages = hostname.includes('github.io');
+    const baseHref = isGitHubPages ? '/cardano-zkvms/' : '/';
+    const base = document.createElement('base');
+    base.href = baseHref;
+    document.head.insertBefore(base, document.head.firstChild);
+  </script>
   <title>OpenVM UPLC Verifier</title>
   <link rel="stylesheet" href="./assets/style.css">
 </head>
