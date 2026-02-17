@@ -1,7 +1,11 @@
 [package]
-name = "openvm-web-backend"
+name = "cardano-zkvms"
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+name = "cardano-zkvms"
+path = "src/main.rs"
 
 [workspace]
 

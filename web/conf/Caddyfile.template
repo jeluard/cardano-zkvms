@@ -1,0 +1,18 @@
+# Reverse proxy for Cardano ZKVMs backend
+# Auto-renews HTTPS certificates from Let's Encrypt
+${CADDY_DOMAIN}:${CADDY_PORT} {
+	reverse_proxy localhost:${BACKEND_PORT}
+	
+	log {
+		output stdout
+		format json
+	}
+	
+	# Security headers
+	header {
+		-Server
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+	}
+}

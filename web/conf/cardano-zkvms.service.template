@@ -1,0 +1,30 @@
+[Unit]
+Description=Cardano ZKVMs OpenVM Backend
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=${REMOTE_PATH}
+
+# Environment variables for the backend
+Environment="OPENVM_GUEST_DIR=${REMOTE_PATH}/${OPENVM_GUEST_DIR}"
+Environment="OPENVM_STATIC_DIR=${REMOTE_PATH}/${OPENVM_STATIC_DIR}"
+Environment="PORT=${BACKEND_PORT}"
+
+# Run the binary
+ExecStart=${REMOTE_PATH}/cardano-zkvms
+
+# Auto-restart on failure
+Restart=on-failure
+RestartSec=5s
+
+# Limits
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cardano-zkvms
+
+[Install]
+WantedBy=multi-user.target

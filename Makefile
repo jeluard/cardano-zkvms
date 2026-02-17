@@ -102,10 +102,22 @@ verify-wrong: $(VERIFY_BIN) ## Verify with a WRONG expected result (should fail)
 
 WEB_DIR := $(ROOT_DIR)/web
 
-.PHONY: uplc-build aiken-build openvm-verifier-build npm-install esbuild web-serve web web-with-backend backend-build backend-linux backend-package setup-linux
+.PHONY: uplc-build aiken-build openvm-verifier-build npm-install esbuild web-serve web web-with-backend backend-build backend-linux backend-package backend-deploy gh-secrets ssh-add-key setup-linux
 
-BACKEND_BIN := $(WEB_DIR)/crates/backend/target/release/openvm-web-backend
-BACKEND_LINUX_BIN := $(WEB_DIR)/crates/backend/target/x86_64-unknown-linux-gnu/release/openvm-web-backend
+BACKEND_BIN := $(WEB_DIR)/crates/backend/target/release/cardano-zkvms
+BACKEND_LINUX_BIN := $(WEB_DIR)/crates/backend/target/x86_64-unknown-linux-gnu/release/cardano-zkvms
+
+# Load configuration from web/conf/.env (optional - for backend deployment)
+# In GitHub Actions CI, this file won't exist and will be silently skipped
+-include web/conf/.env
+
+# SSH destination: uses SSH_USER@SSH_HOST if SSH_USER is set, otherwise just SSH_HOST
+# This lets SSH config handle auth when using aliases (SSH_USER empty)
+SSH_DEST = $(if $(SSH_USER),$(SSH_USER)@)$(SSH_HOST)
+
+# SSH options: include explicit key if SSH_KEY_PATH is defined
+# ControlMaster multiplexes all ssh/scp over one connection → one passphrase prompt
+SSH_OPTS = $(if $(SSH_KEY_PATH),-i $(SSH_KEY_PATH),) -o ControlMaster=auto -o ControlPath=/tmp/ssh-deploy-%r@%h:%p -o ControlPersist=120
 
 setup-linux: ## Install cross-compilation tools for Linux targets
 	@echo "Installing x86_64-unknown-linux-gnu target..."
@@ -188,6 +200,35 @@ backend-package: backend-build ## Package backend binary for deployment
 	@echo "  tar -xzf /tmp/openvm-backend.tar.gz"
 	@echo "  scp openvm-backend/* user@remote:/path/to/deployment/"
 
+backend-deploy: backend-build build ## Build guest (if needed) and deploy backend service to remote server via SSH with systemd and Caddy reverse proxy
+	@bash web/scripts/deploy.sh
+
+
+gh-secrets: ## Set GitHub secret BACKEND_URL_PROD from .env file
+	@if [ -z "$(BACKEND_URL)" ]; then \
+		echo "❌ BACKEND_URL not set in web/conf/.env"; \
+		exit 1; \
+	fi
+	@command -v gh > /dev/null || { echo "❌ gh CLI not installed. Install from https://github.com/cli/cli"; exit 1; }
+	@echo "Setting GitHub secret BACKEND_URL_PROD = $(BACKEND_URL)"
+	@echo "$(BACKEND_URL)" | gh secret set BACKEND_URL_PROD --body --
+	@echo "✓ GitHub secret BACKEND_URL_PROD updated successfully"
+	@echo ""
+	@echo "GitHub Actions will now use:"
+	@echo "  BACKEND_URL_PROD = $(BACKEND_URL)"
+	@echo ""
+	@echo "Next step: Push to main branch to trigger CD workflow"
+	@echo "  git push origin main"
+
+ssh-add-key: ## Add SSH key to agent (automatic, called by backend-deploy for password-free deployment)
+	@if [ -z "$(SSH_KEY_PATH)" ]; then \
+		echo "ℹ SSH_KEY_PATH not set, skipping ssh-add"; \
+	else \
+		echo "Ensuring SSH key is loaded: $(SSH_KEY_PATH)"; \
+		ssh-add $(SSH_KEY_PATH) 2>/dev/null || ssh-add -K $(SSH_KEY_PATH) 2>/dev/null || true; \
+		echo "✓ SSH key ready (you may be prompted for passphrase once)."; \
+	fi
+
 uplc-build: ## Build the UPLC WASM module for the browser verifier
 	@echo "──────────────────────────────────────────────"
 	@echo " Building UPLC WASM module"
@@ -222,8 +263,11 @@ npm-install: ## Install npm dependencies for web
 esbuild: npm-install ## Bundle assets with esbuild (replaces patch script)
 	@echo "──────────────────────────────────────────────"
 	@echo " Bundling with esbuild"
+	@if [ -n "$(BACKEND_URL)" ]; then \
+		echo " Backend URL: $(BACKEND_URL)"; \
+	fi
 	@echo "──────────────────────────────────────────────"
-	cd $(WEB_DIR) && npm run build:prod
+	cd $(WEB_DIR) && BACKEND_URL=$(BACKEND_URL) npm run build:prod
 	@echo ""
 
 
@@ -233,7 +277,11 @@ web-serve: ## Serve the web verifier from dist/ on http://localhost:8080 (static
 	@echo "──────────────────────────────────────────────"
 	cd $(WEB_DIR)/dist && python3 -m http.server 8080
 
-web-with-backend: uplc-build aiken-build openvm-verifier-build esbuild ## Build all WASM + esbuild bundle + backend, then serve with proof generation
+web-with-backend: uplc-build aiken-build openvm-verifier-build ## Build all WASM + esbuild bundle + backend, then serve with proof generation
+	@echo "──────────────────────────────────────────────"
+	@echo " Building with local backend (http://localhost:8080)"
+	@echo "──────────────────────────────────────────────"
+	BACKEND_URL=http://localhost:8080 make esbuild
 	@echo "──────────────────────────────────────────────"
 	@echo " Building Rust backend with integrated check-vk"
 	@echo "──────────────────────────────────────────────"
@@ -247,7 +295,15 @@ web-with-backend: uplc-build aiken-build openvm-verifier-build esbuild ## Build 
 		OPENVM_STATIC_DIR="$(WEB_DIR)/dist" \
 		cargo run --release
 
-web: uplc-build aiken-build openvm-verifier-build esbuild web-serve ## Build WASM + esbuild bundle and serve
+web: uplc-build aiken-build openvm-verifier-build ## Build WASM + esbuild bundle and serve (no backend)
+	@echo "──────────────────────────────────────────────"
+	@echo " Building with no backend (local only)"
+	@echo "──────────────────────────────────────────────"
+	BACKEND_URL=/ make esbuild
+	@echo "──────────────────────────────────────────────"
+	@echo " Serving web verifier at http://localhost:8080"
+	@echo "──────────────────────────────────────────────"
+	make web-serve
 
 # ---------------------------------------------------------------------------
 # Cleanup
