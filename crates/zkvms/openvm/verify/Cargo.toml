@@ -1,11 +1,33 @@
 [package]
-name = "openvm-verify"
+name = "openvm-wasm-verifier"
 version = "0.1.0"
 edition = "2021"
+description = "WASM bindings for OpenVM STARK proof verification"
 
-# Keep this crate out of the parent workspace — it's a standalone tool.
+# Standalone workspace — verify uses a different openvm branch
+# (feat/v1-verify-stark) than core (v1.4.3), causing a `links` conflict
+# on circuit-primitives-cuda if they share a workspace.
 [workspace]
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-sha2 = "0.10"
-hex = "0.4"
+verify-stark = { git = "https://github.com/openvm-org/openvm.git", branch = "feat/v1-verify-stark", package = "verify-stark", default-features = false }
+bitcode = { version = "0.6.5", default-features = false, features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+wasm-bindgen = "0.2"
+getrandom = { version = "0.2", features = ["js"] }
+console_error_panic_hook = "0.1"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+# Patches for WASM compatibility (jemalloc stubs)
+[patch.crates-io]
+tikv-jemalloc-sys = { path = "patches/tikv-jemalloc-sys" }
+tikv-jemallocator = { path = "patches/tikv-jemallocator" }
+
+[profile.release]
+opt-level = "s"
+lto = true

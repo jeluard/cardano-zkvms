@@ -1,12 +1,7 @@
 #!/bin/bash
-set -e
 
-# Color codes for emoji-based output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+set -eo pipefail
+trap 'echo ""; echo "❌ Interrupted."; exit 130' INT
 
 # Script must be run from repository root
 if [ ! -f "Makefile" ]; then
@@ -22,7 +17,7 @@ fi
 source web/conf/.env
 
 # Check if required variables are set
-for var in SSH_HOST REMOTE_PATH OPENVM_GUEST_DIR OPENVM_STATIC_DIR CADDY_DOMAIN CADDY_PORT BACKEND_PORT; do
+for var in SSH_HOST REMOTE_PATH OPENVM_GUEST_DIR CADDY_DOMAIN CADDY_PORT BACKEND_PORT; do
     if [ -z "${!var}" ]; then
         echo "❌ Error: $var is not set in web/conf/.env"
         exit 1
@@ -45,14 +40,6 @@ echo "🚀 Deploying Cardano ZKVMs Backend & Caddy"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Verify required files exist
-BACKEND_BIN="web/crates/backend/target/release/cardano-zkvms"
-if [ ! -f "$BACKEND_BIN" ]; then
-    echo "❌ Backend binary not found at $BACKEND_BIN"
-    echo "   Run 'make backend-build' first"
-    exit 1
-fi
-
 if [ ! -f "web/conf/cardano-zkvms.service.template" ]; then
     echo "❌ Service template not found"
     exit 1
@@ -73,58 +60,67 @@ if [ -n "$SSH_KEY_PATH" ]; then
     echo ""
 fi
 
-# Step 1: Create deployment directory
-echo "📦 1. Creating deployment directory..."
-ssh $SSH_OPTS $SSH_DEST "mkdir -p $REMOTE_PATH"
+# Step 1: Sync source code to remote
+echo "📤 1. [local → remote] Syncing source code..."
+RSYNC_SSH="ssh $SSH_OPTS"
+rsync -az --delete -e "$RSYNC_SSH" \
+    --include='Cargo.toml' \
+    --include='crates/' \
+    --include='crates/uplc/***' \
+    --include='crates/zkvms/' \
+    --include='crates/zkvms/openvm/' \
+    --include='crates/zkvms/openvm/Cargo.toml' \
+    --include='crates/zkvms/openvm/openvm.toml' \
+    --include='crates/zkvms/openvm/guest/' \
+    --include='crates/zkvms/openvm/guest/Cargo.toml' \
+    --include='crates/zkvms/openvm/guest/src/***' \
+    --include='crates/zkvms/openvm/core/' \
+    --include='crates/zkvms/openvm/core/Cargo.toml' \
+    --include='crates/zkvms/openvm/core/src/***' \
+    --include='web/' \
+    --include='web/scripts/' \
+    --include='web/scripts/setup.sh' \
+    --include='web/crates/' \
+    --include='web/crates/backend/' \
+    --include='web/crates/backend/Cargo.toml' \
+    --include='web/crates/backend/Cargo.lock' \
+    --include='web/crates/backend/src/***' \
+    --exclude='*' \
+    ./ "$SSH_DEST:$REMOTE_PATH/"
+# setup.sh is expected at the root by the deploy flow
+rsync -az -e "$RSYNC_SSH" web/scripts/setup.sh "$SSH_DEST:$REMOTE_PATH/setup.sh"
 
-# Step 2: Send artifacts
-echo "📤 2. Sending artifacts..."
-ssh $SSH_OPTS $SSH_DEST "mkdir -p $REMOTE_PATH/crates/zkvms/openvm/target/riscv32im-risc0-zkvm-elf $REMOTE_PATH/web/data $REMOTE_PATH/web/crates/backend"
-# Send guest artifacts if they exist locally
-if [ -d "crates/zkvms/openvm/target/riscv32im-risc0-zkvm-elf/release" ] && [ -n "$(ls -A crates/zkvms/openvm/target/riscv32im-risc0-zkvm-elf/release 2>/dev/null)" ]; then
-    scp $SSH_OPTS -r crates/zkvms/openvm/target/riscv32im-risc0-zkvm-elf/release $SSH_DEST:$REMOTE_PATH/crates/zkvms/openvm/target/riscv32im-risc0-zkvm-elf/ 2>/dev/null
+
+# Step 2: Run setup
+echo "⚙️  2. [remote] Running setup (this may take a while for first build)..."
+if [ "${FORCE_KEYGEN:-0}" = "1" ]; then
+    echo "   🔑 Force key regeneration enabled (FORCE_KEYGEN=1)"
 fi
-scp $SSH_OPTS crates/zkvms/openvm/Cargo.toml $SSH_DEST:$REMOTE_PATH/crates/zkvms/openvm/ 2>/dev/null
-scp $SSH_OPTS web/scripts/setup.sh $SSH_DEST:$REMOTE_PATH/setup.sh 2>/dev/null
-# Send backend source code for remote builds
-scp $SSH_OPTS -r web/crates/backend/src $SSH_DEST:$REMOTE_PATH/web/crates/backend/ 2>/dev/null
-scp $SSH_OPTS web/crates/backend/Cargo.toml $SSH_DEST:$REMOTE_PATH/web/crates/backend/ 2>/dev/null
-scp $SSH_OPTS web/crates/backend/Cargo.lock $SSH_DEST:$REMOTE_PATH/web/crates/backend/ 2>/dev/null
-if [ -f "web/data/agg_stark.vk" ]; then
-    scp $SSH_OPTS web/data/agg_stark.vk $SSH_DEST:$REMOTE_PATH/web/data/ 2>/dev/null
+if ! ssh $SSH_OPTS $SSH_DEST "bash $REMOTE_PATH/setup.sh $REMOTE_PATH $OPENVM_GUEST_DIR ${FORCE_KEYGEN:-0}"; then
+    echo "⚠️  Setup script reported issues. Building services anyway..."
 fi
 
-# Step 3: Run setup
-echo "⚙️  3. Running setup..."
-ssh $SSH_OPTS $SSH_DEST "bash $REMOTE_PATH/setup.sh $REMOTE_PATH $OPENVM_GUEST_DIR $OPENVM_STATIC_DIR"
-
-# Step 4: Install Caddy
-echo "🔧 4. Installing Caddy..."
+# Step 3: Install Caddy
+echo "🔧 3. [remote] Installing Caddy..."
 ssh $SSH_OPTS $SSH_DEST "command -v caddy >/dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y -qq caddy) || echo '⚠️  Caddy installation skipped'"
 
-# Step 5: Deploy backend binary
-echo "💾 5. Deploying backend binary..."
-scp $SSH_OPTS "$BACKEND_BIN" $SSH_DEST:$REMOTE_PATH/cardano-zkvms 2>/dev/null
-ssh $SSH_OPTS $SSH_DEST "chmod +x $REMOTE_PATH/cardano-zkvms"
-
-# Step 6: Install systemd service
-echo "🎯 6. Installing systemd service..."
+# Step 4: Install systemd service
+echo "🎯 4. [local → remote] Installing systemd service..."
 sed "s|\${REMOTE_PATH}|$REMOTE_PATH|g" web/conf/cardano-zkvms.service.template | \
     sed "s|\${OPENVM_GUEST_DIR}|$OPENVM_GUEST_DIR|g" | \
-    sed "s|\${OPENVM_STATIC_DIR}|$OPENVM_STATIC_DIR|g" | \
     sed "s|\${BACKEND_PORT}|$BACKEND_PORT|g" | \
     ssh $SSH_OPTS $SSH_DEST "sudo tee /etc/systemd/system/cardano-zkvms.service >/dev/null"
 ssh $SSH_OPTS $SSH_DEST "sudo systemctl daemon-reload"
 
-# Step 7: Setup reverse proxy
-echo "🔀 7. Setting up reverse proxy..."
+# Step 5: Setup reverse proxy
+echo "🔀 5. [local → remote] Setting up reverse proxy..."
 sed "s|\${CADDY_DOMAIN}|$CADDY_DOMAIN|g" web/conf/Caddyfile.template | \
     sed "s|\${CADDY_PORT}|$CADDY_PORT|g" | \
     sed "s|\${BACKEND_PORT}|$BACKEND_PORT|g" | \
     ssh $SSH_OPTS $SSH_DEST "sudo tee /etc/caddy/Caddyfile >/dev/null"
 
-# Step 8: Start services
-echo "🎬 8. Starting services..."
+# Step 6: Start services
+echo "🎬 6. [remote] Starting services..."
 ssh $SSH_OPTS $SSH_DEST "sudo systemctl enable cardano-zkvms caddy && sudo systemctl restart caddy cardano-zkvms"
 
 # Summary
@@ -138,8 +134,8 @@ ssh $SSH_OPTS $SSH_DEST "sudo systemctl status caddy --no-pager | head -3"
 
 echo ""
 echo "📋 View logs:"
-echo "  Backend logs:  ssh $SSH_DEST sudo journalctl -u cardano-zkvms -f"
-echo "  Caddy logs:    ssh $SSH_DEST sudo journalctl -u caddy -f"
+echo "  Backend logs:  make backend-logs"
+echo "  Caddy logs:    make caddy-logs"
 echo ""
 echo "🌐 Access: https://$CADDY_DOMAIN:$CADDY_PORT"
 echo ""

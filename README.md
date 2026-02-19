@@ -35,20 +35,20 @@ println!("Implementation: {}", evaluator.version());
 ### Switching UPLC Implementations
 
 Edit the feature flags in:
-- `crates/zkvms/openvm/Cargo.toml` - for OpenVM guest
+- `crates/zkvms/openvm/guest/Cargo.toml` - for OpenVM guest
 - Any crate depending on `uplc`
 
 Example:
 ```toml
 # Switch from uplc-turbo-riscv to uplc-turbo
-uplc = { path = "../../uplc", features = ["uplc-turbo"] }
+uplc = { path = "../../../uplc", features = ["uplc-turbo"] }
 ```
 
 # Web
 
 A simple web UI that allows to prove some UPLC program execution then verify it in your browser.
 
-Leverages [openvm-wasm-stark-verifier](https://github.com/ethproofs/openvm-wasm-stark-verifier) for WASM verification.
+Leverages [OpenVM verify-stark](https://github.com/openvm-org/openvm/tree/feat/v1-verify-stark/crates/verify-stark) compiled to WASM for in-browser STARK proof verification.
 
 ## Building & Running
 

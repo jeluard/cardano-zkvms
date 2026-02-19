@@ -1,0 +1,16 @@
+[package]
+name = "tikv-jemallocator"
+version = "0.6.1"
+edition = "2021"
+description = "WASM-compatible stub for tikv-jemallocator"
+
+[dependencies]
+libc = "0.2"
+tikv-jemalloc-sys = { version = "0.6", optional = true }
+
+[features]
+default = []
+background_threads_runtime_support = []
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tikv-jemalloc-sys = { version = "0.6", optional = true }

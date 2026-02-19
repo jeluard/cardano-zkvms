@@ -9,17 +9,15 @@
  * The aggregation STARK verifying key (`agg_stark.vk`) is generated once per
  * OpenVM toolchain version by running:
  *
- *   cargo openvm setup
+ *   cardano-zkvms setup
  *
  * This writes `agg_stark.vk` (along with `agg_stark.pk`, `agg_halo2.pk`, etc.)
  * to `~/.openvm/`. The file is a bitcode-encoded `AggStarkVerifyingKey` that
  * captures the circuit structure of the aggregation STARK — it is deterministic
  * and identical for every user on the same toolchain version.
  *
- * At build time the file is copied from `web/data/agg_stark.vk` into the dist
- * bundle and served as a static asset at `/data/agg_stark.vk`.
- *
- * At runtime the client fetches this static file, then appends two
+ * At runtime the backend serves `agg_stark.vk` from `~/.openvm/` at
+ * `/data/agg_stark.vk`. The client fetches it, then appends two
  * program-specific commits (app_exe_commit + app_vm_commit, bitcode-encoded in
  * BabyBear Montgomery form) to produce the full `VmStarkVerifyingKey` used by
  * the STARK verifier.

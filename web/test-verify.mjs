@@ -4,7 +4,7 @@
  *
  * Tests both:
  *   1. Native verification via `cargo openvm verify stark`
- *   2. WASM verification via @ethproofs/openvm-wasm-stark-verifier
+ *   2. WASM verification via openvm-wasm-verifier (local crate)
  *
  * Usage:
  *   cd web && node test-verify.mjs
@@ -23,7 +23,7 @@ const COMMIT_PATH = join(ROOT, "target/openvm/release/openvm-guest.commit.json")
 const AGG_VK_PATH = join(homedir(), ".openvm/agg_stark.vk");
 const WASM_PKG = join(
   new URL(".", import.meta.url).pathname,
-  "node_modules/@ethproofs/openvm-wasm-stark-verifier/pkg"
+  "dist/openvm-verifier"
 );
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -143,10 +143,10 @@ function zstdCompress(data) {
 // ─── Load WASM module ────────────────────────────────────────────────────────
 
 async function loadWasm() {
-  const wasmBuf = readFileSync(join(WASM_PKG, "openvm_wasm_stark_verifier_bg.wasm"));
-  const bg = await import(join(WASM_PKG, "openvm_wasm_stark_verifier_bg.js"));
+  const wasmBuf = readFileSync(join(WASM_PKG, "openvm_wasm_verifier_bg.wasm"));
+  const bg = await import(join(WASM_PKG, "openvm_wasm_verifier_bg.js"));
   const { instance } = await WebAssembly.instantiate(wasmBuf, {
-    "./openvm_wasm_stark_verifier_bg.js": bg,
+    "./openvm_wasm_verifier_bg.js": bg,
   });
   bg.__wbg_set_wasm(instance.exports);
   if (typeof bg.__wbindgen_init_externref_table === "function")
@@ -196,7 +196,7 @@ async function main() {
 
   // 4. WASM verification
   console.log("\n" + "=".repeat(60));
-  console.log("  WASM: @ethproofs/openvm-wasm-stark-verifier");
+  console.log("  WASM: openvm-wasm-verifier (local crate)");
   console.log("=".repeat(60));
 
   let wasm;

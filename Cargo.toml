@@ -1,8 +1,6 @@
 [workspace]
 members = [
     "crates/uplc",
-    "crates/zkvms/openvm"
 ]
-default-members = ["crates/zkvms/openvm"]
 resolver = "2"
 

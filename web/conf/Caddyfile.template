@@ -8,11 +8,19 @@ ${CADDY_DOMAIN}:${CADDY_PORT} {
 		format json
 	}
 	
-	# Security headers
+	# CORS headers (applied even on error responses like 502)
 	header {
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, POST, OPTIONS"
+		Access-Control-Allow-Headers "Content-Type"
 		-Server
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
 		X-XSS-Protection "1; mode=block"
+	}
+
+	@options method OPTIONS
+	handle @options {
+		respond 204
 	}
 }

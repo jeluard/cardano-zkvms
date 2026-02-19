@@ -1,0 +1,24 @@
+[package]
+name = "openvm-prover"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "openvm_prover"
+
+[features]
+default = []
+evm-prove = ["openvm-sdk/evm-prove"]
+
+[dependencies]
+openvm-sdk = { workspace = true }
+openvm-stark-sdk = { workspace = true }
+openvm-circuit = { workspace = true }
+openvm-continuations = { workspace = true }
+openvm-stark-backend = { workspace = true }
+
+eyre = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+hex = { workspace = true, features = ["std"] }

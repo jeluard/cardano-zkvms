@@ -1,0 +1,18 @@
+[package]
+name = "openvm-guest"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+std = []
+uplc-aiken = ["uplc/uplc-aiken"]
+uplc-turbo = ["uplc/uplc-turbo"]
+uplc-turbo-riscv = ["uplc/uplc-turbo-riscv"]
+default = ["uplc-turbo-riscv"]
+
+[dependencies]
+hex = { workspace = true }
+sha2 = { version = "0.10", default-features = false }
+anyhow = { version = "1.0", default-features = false }
+openvm = { workspace = true, features = ["std"] }
+uplc = { workspace = true }

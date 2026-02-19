@@ -10,9 +10,10 @@ User=ubuntu
 WorkingDirectory=${REMOTE_PATH}
 
 # Environment variables for the backend
+Environment="PATH=/home/ubuntu/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="OPENVM_GUEST_DIR=${REMOTE_PATH}/${OPENVM_GUEST_DIR}"
-Environment="OPENVM_STATIC_DIR=${REMOTE_PATH}/${OPENVM_STATIC_DIR}"
 Environment="PORT=${BACKEND_PORT}"
+Environment="RUST_BACKTRACE=full"
 
 # Run the binary
 ExecStart=${REMOTE_PATH}/cardano-zkvms

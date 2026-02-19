@@ -9,7 +9,6 @@
     "dev": "node esbuild.config.js --watch"
   },
   "dependencies": {
-    "@ethproofs/openvm-wasm-stark-verifier": "latest",
     "zstd-codec": "^0.1.5"
   },
   "devDependencies": {
