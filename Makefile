@@ -262,11 +262,16 @@ web-with-backend: uplc-build aiken-build openvm-verifier-build ## Build all WASM
 	@echo "──────────────────────────────────────────────"
 	cd $(WEB_DIR)/crates/backend && cargo build --release
 	@echo "──────────────────────────────────────────────"
-	@echo " Serving web with backend at http://localhost:8080"
+	@echo " Backend API:  http://localhost:8080"
+	@echo " Web UI:       http://localhost:3000"
 	@echo " Proof generation enabled via /api/prove"
 	@echo "──────────────────────────────────────────────"
-	cd $(WEB_DIR)/crates/backend && OPENVM_GUEST_DIR="$(GUEST_DIR)" \
-		cargo run --release
+	@cd $(WEB_DIR)/crates/backend && OPENVM_GUEST_DIR="$(GUEST_DIR)" \
+		cargo run --release & \
+	BACKEND_PID=$$!; \
+	trap "kill $$BACKEND_PID 2>/dev/null; exit" INT TERM; \
+	cd $(WEB_DIR)/dist && python3 -m http.server 3000; \
+	kill $$BACKEND_PID 2>/dev/null
 
 web: uplc-build aiken-build openvm-verifier-build ## Build WASM + esbuild bundle and serve (no backend)
 	@echo "──────────────────────────────────────────────"
