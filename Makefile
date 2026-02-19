@@ -223,7 +223,9 @@ openvm-verifier-build: ## Build OpenVM STARK verifier WASM from local crate
 	@echo "──────────────────────────────────────────────"
 	@echo " Building OpenVM STARK verifier WASM"
 	@echo "──────────────────────────────────────────────"
-	cd $(ROOT_DIR)/crates/zkvms/openvm/verify && wasm-pack build --target web --out-dir $(WEB_DIR)/dist/openvm-verifier
+	cd $(ROOT_DIR)/crates/zkvms/openvm/verify && \
+		$(if $(shell command -v brew 2>/dev/null),CC="$$(brew --prefix llvm)/bin/clang" AR="$$(brew --prefix llvm)/bin/llvm-ar",CC=clang AR=llvm-ar) \
+		wasm-pack build --target web --out-dir $(WEB_DIR)/dist/openvm-verifier
 	@echo ""
 
 npm-install: ## Install npm dependencies for web

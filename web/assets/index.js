@@ -29,7 +29,7 @@ import { config } from './config.js';
 
 async function loadAggVk() {
   try {
-    const resp = await fetch('data/agg_stark.vk');
+    const resp = await fetch(config.apiUrl('/data/agg_stark.vk'));
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const buf = await resp.arrayBuffer();
     aggVkBytes = new Uint8Array(buf);

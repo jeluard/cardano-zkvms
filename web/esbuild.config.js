@@ -60,50 +60,6 @@ const copyHtmlPlugin = {
   }
 };
 
-// Patch openvm-verifier to load WASM dynamically (for browser fetch)
-const patchOpenVMVerifierPlugin = {
-  name: 'patch-openvm-verifier',
-  setup(build) {
-    build.onStart(() => {
-      const verifierDir = path.join(__dirname, 'dist', 'openvm-verifier');
-      const jsFile = path.join(verifierDir, 'openvm_wasm_verifier.js');
-      
-      if (!fs.existsSync(jsFile)) {
-        console.log('⚠️  openvm-verifier not found, skipping patch');
-        return;
-      }
-      
-      const wrapper = `// Web-compatible wrapper (dynamic WASM loading)
-import { __wbg_set_wasm, __wbindgen_init_externref_table } from "./openvm_wasm_verifier_bg.js";
-export * from "./openvm_wasm_verifier_bg.js";
-
-let _initialized = false;
-
-export default async function init(input) {
-    if (_initialized) return;
-
-    const url = input ?? new URL("openvm_wasm_verifier_bg.wasm", import.meta.url);
-    const response = await fetch(url);
-    const bytes = await response.arrayBuffer();
-
-    const imports = {};
-    imports["./openvm_wasm_verifier_bg.js"] = await import("./openvm_wasm_verifier_bg.js");
-
-    const { instance } = await WebAssembly.instantiate(bytes, imports);
-    __wbg_set_wasm(instance.exports);
-    if (typeof __wbindgen_init_externref_table === "function")
-        __wbindgen_init_externref_table();
-
-    _initialized = true;
-}
-`;
-      
-      fs.writeFileSync(jsFile, wrapper);
-      console.log('✓ Patched openvm-verifier for dynamic WASM loading');
-    });
-  }
-};
-
 esbuild.build({
   entryPoints: ['assets/index.js'],
   bundle: true,
@@ -117,7 +73,7 @@ esbuild.build({
   define: {
     'BACKEND_URL_CONFIG': JSON.stringify(process.env.BACKEND_URL || '/'),
   },
-  plugins: [copyAssetsPlugin, copyHtmlPlugin, patchOpenVMVerifierPlugin],
+  plugins: [copyAssetsPlugin, copyHtmlPlugin],
   external: [
     '../uplc/*',
     '../aiken/*',
