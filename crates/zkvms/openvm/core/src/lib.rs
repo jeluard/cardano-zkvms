@@ -2,23 +2,29 @@
 //! generation — replaces `cargo openvm` CLI commands with direct Rust API calls.
 
 use std::path::Path;
-use std::sync::Arc;
 
 use eyre::{Result, WrapErr};
 use openvm_circuit::arch::instructions::exe::VmExe;
-use openvm_sdk::config::{AppConfig, SdkVmConfig};
+use openvm_continuations::CommitBytes;
+use openvm_sdk::config::{AggregationSystemParams, AppConfig};
 use openvm_sdk::fs::{read_object_from_file, write_object_to_file};
-use openvm_sdk::keygen::{AggProvingKey, AggVerifyingKey, AppProvingKey};
+use openvm_sdk::keygen::{AggProvingKey, AppProvingKey};
+use openvm_sdk::types::{VerificationBaselineJson, VersionedVmStarkProof};
 #[cfg(feature = "evm-prove")]
 use openvm_sdk::keygen::Halo2ProvingKey;
-use openvm_sdk::types::VersionedVmStarkProof;
 #[cfg(feature = "evm-prove")]
 use openvm_sdk::types::EvmProof;
 use openvm_sdk::{Sdk, StdIn};
+use openvm_sdk_config::SdkVmConfig;
+use openvm_stark_backend::{keygen::types::MultiStarkVerifyingKey, SystemParams};
+use openvm_stark_sdk::config::{
+    app_params_with_100_bits_security, MAX_APP_LOG_STACKED_HEIGHT,
+};
 
 // Re-export crates used by downstream consumers (e.g. the web backend).
 pub use openvm_circuit;
 pub use openvm_sdk;
+pub use openvm_sdk::types::VerificationBaselineJson as StarkVerificationBaselineJson;
 
 pub type F = openvm_sdk::F;
 
@@ -27,7 +33,7 @@ pub type Config = AppConfig<SdkVmConfig>;
 pub type Exe = VmExe<F>;
 pub type AppPk = AppProvingKey<SdkVmConfig>;
 pub type AggPk = AggProvingKey;
-pub type AggVk = AggVerifyingKey;
+pub type AggVk = MultiStarkVerifyingKey<openvm_sdk::SC>;
 #[cfg(feature = "evm-prove")]
 pub type Halo2Pk = Halo2ProvingKey;
 
@@ -35,21 +41,51 @@ pub type Halo2Pk = Halo2ProvingKey;
 pub struct StarkProveResult {
     /// Serialized STARK proof as JSON (for sending to client).
     pub proof_json: serde_json::Value,
+    /// Baseline artifacts needed by the 2.0 verifier.
+    pub baseline_json: VerificationBaselineJson,
+    /// OpenVM proof format version.
+    pub proof_version: String,
     /// App execution commit hex string.
     pub app_exe_commit: String,
     /// App VM commit hex string.
     pub app_vm_commit: String,
-    /// User public values (the 32-byte commitment revealed by the guest).
-    pub public_values: Vec<u8>,
+}
+
+fn default_app_system_params() -> SystemParams {
+    app_params_with_100_bits_security(MAX_APP_LOG_STACKED_HEIGHT)
+}
+
+fn default_agg_params() -> AggregationSystemParams {
+    AggregationSystemParams::default()
+}
+
+fn sdk_from_config(config: Config) -> Result<Sdk> {
+    Sdk::new(config, default_agg_params()).map_err(Into::into)
+}
+
+fn sdk_from_keys(app_pk: AppPk, agg_pk: AggPk) -> Result<Sdk> {
+    Sdk::builder()
+        .app_pk(app_pk)
+        .agg_pk(agg_pk)
+        .build()
+        .map_err(Into::into)
+}
+
+fn commit_hex(commit: CommitBytes) -> String {
+    format!("0x{}", hex::encode(commit.as_slice()))
+}
+
+pub fn openvm_version() -> &'static str {
+    openvm_sdk::OPENVM_VERSION
 }
 
 /// Load an `AppConfig` from an `openvm.toml` file.
 pub fn load_config(config_path: &Path) -> Result<AppConfig<SdkVmConfig>> {
     let toml_str = std::fs::read_to_string(config_path)
         .wrap_err_with(|| format!("Failed to read config: {}", config_path.display()))?;
-    let config = SdkVmConfig::from_toml(&toml_str)
+    let vm_config = SdkVmConfig::from_toml(&toml_str)
         .wrap_err("Failed to parse openvm.toml")?;
-    Ok(config)
+    Ok(AppConfig::new(vm_config, default_app_system_params()))
 }
 
 /// Load a pre-built guest executable (`.vmexe`) from disk.
@@ -71,7 +107,7 @@ pub fn load_agg_pk(agg_pk_path: &Path) -> Result<AggProvingKey> {
 }
 
 /// Load aggregation verifying key from disk.
-pub fn load_agg_vk(agg_vk_path: &Path) -> Result<AggVerifyingKey> {
+pub fn load_agg_vk(agg_vk_path: &Path) -> Result<AggVk> {
     read_object_from_file(agg_vk_path)
         .wrap_err_with(|| format!("Failed to load agg verifying key: {}", agg_vk_path.display()))
 }
@@ -85,7 +121,7 @@ pub fn build_guest(
     target_dir: &Path,
 ) -> Result<()> {
     let config = load_config(config_path)?;
-    let sdk = Sdk::new(config)?;
+    let sdk = sdk_from_config(config)?;
 
     let guest_opts = Default::default();
     let pkg_dir = manifest_path
@@ -101,7 +137,7 @@ pub fn build_guest(
     let vmexe_dir = target_dir.join("openvm/release");
     std::fs::create_dir_all(&vmexe_dir)?;
     let vmexe_path = vmexe_dir.join("openvm-guest.vmexe");
-    write_object_to_file(&vmexe_path, &exe)
+    write_object_to_file(&vmexe_path, exe.as_ref())
         .wrap_err_with(|| format!("Failed to write vmexe to {}", vmexe_path.display()))?;
 
     tracing::info!("Guest built: {}", vmexe_path.display());
@@ -117,7 +153,7 @@ pub fn generate_app_pk(
     target_dir: &Path,
 ) -> Result<()> {
     let config = load_config(config_path)?;
-    let sdk = Sdk::new(config)?;
+    let sdk = sdk_from_config(config)?;
 
     let (app_pk, _app_vk) = sdk.app_keygen();
 
@@ -133,11 +169,11 @@ pub fn generate_app_pk(
 }
 
 /// Generate aggregation proving key + verifying key, equivalent to `cargo openvm setup`.
-pub fn generate_agg_keys(openvm_home: &Path) -> Result<()> {
-    let sdk = Sdk::standard();
+pub fn generate_agg_keys(config_path: &Path, openvm_home: &Path) -> Result<()> {
+    let config = load_config(config_path)?;
+    let sdk = sdk_from_config(config)?;
 
-    let (agg_pk, agg_vk) = sdk.agg_keygen()
-        .wrap_err("Failed to generate aggregation keys")?;
+    let (agg_pk, agg_vk) = sdk.agg_keygen();
 
     std::fs::create_dir_all(openvm_home)?;
 
@@ -172,8 +208,8 @@ pub fn execute(
     program_bytes: &[u8],
 ) -> Result<Vec<u8>> {
     let stdin = make_stdin(program_bytes);
-    let sdk = Sdk::new(config.clone())?;
-    let output = sdk.execute(Arc::new(exe.clone()), stdin)
+    let sdk = sdk_from_config(config.clone())?;
+    let output = sdk.execute(exe.clone(), stdin)
         .wrap_err("Guest execution failed")?;
     Ok(output)
 }
@@ -183,7 +219,6 @@ pub fn execute(
 /// Equivalent to `cargo openvm prove stark` + `cargo openvm commit`.
 /// Returns the proof JSON, commits, and public values in one call.
 pub fn prove_stark(
-    config: &AppConfig<SdkVmConfig>,
     exe: &VmExe<F>,
     app_pk: &AppProvingKey<SdkVmConfig>,
     agg_pk: &AggProvingKey,
@@ -191,24 +226,46 @@ pub fn prove_stark(
 ) -> Result<StarkProveResult> {
     let stdin = make_stdin(program_bytes);
 
-    let sdk = Sdk::new(config.clone())?
-        .with_app_pk(app_pk.clone())
-        .with_agg_pk(agg_pk.clone());
-
-    let (proof, commit) = sdk.prove(Arc::new(exe.clone()), stdin)
+    let sdk = sdk_from_keys(app_pk.clone(), agg_pk.clone())?;
+    let mut prover = sdk.prover(exe.clone())
+        .wrap_err("Failed to create STARK prover")?;
+    let (proof, _) = prover.prove(stdin, &[])
         .wrap_err("STARK proof generation failed")?;
+    let baseline = prover.generate_baseline();
+    let baseline_json = VerificationBaselineJson::from(baseline.clone());
+    let app_exe_commit = commit_hex(baseline_json.app_exe_commit);
+    let app_vm_commit = CommitBytes::from(prover.app_vm_commit());
 
     let versioned = VersionedVmStarkProof::new(proof)
         .wrap_err("Failed to create versioned proof")?;
+    let proof_version = versioned.version.clone();
     let proof_json = serde_json::to_value(&versioned)
         .wrap_err("Failed to serialize proof to JSON")?;
 
     Ok(StarkProveResult {
         proof_json,
-        app_exe_commit: format!("{}", commit.app_exe_commit),
-        app_vm_commit: format!("{}", commit.app_vm_commit),
-        public_values: versioned.user_public_values.to_vec(),
+        baseline_json,
+        proof_version,
+        app_exe_commit,
+        app_vm_commit: commit_hex(app_vm_commit),
     })
+}
+
+/// Verify a STARK proof using the native OpenVM 2.0 verifier.
+pub fn verify_stark(
+    agg_vk: &AggVk,
+    proof_json: &serde_json::Value,
+    baseline_json: &VerificationBaselineJson,
+) -> Result<()> {
+    let versioned: VersionedVmStarkProof = serde_json::from_value(proof_json.clone())
+        .wrap_err("Failed to deserialize versioned proof JSON")?;
+    let proof = versioned
+        .try_into()
+        .wrap_err("Failed to decode STARK proof")?;
+
+    Sdk::verify_proof(agg_vk.clone(), baseline_json.clone().into(), &proof)
+        .wrap_err("STARK proof verification failed")?;
+    Ok(())
 }
 
 // =============================================================================
@@ -225,11 +282,9 @@ pub fn generate_halo2_pk(
     app_pk: &AppProvingKey<SdkVmConfig>,
     agg_pk: &AggProvingKey,
 ) -> Result<Halo2ProvingKey> {
-    let sdk = Sdk::new(config.clone())?
-        .with_app_pk(app_pk.clone())
-        .with_agg_pk(agg_pk.clone());
-    let halo2_pk = sdk.halo2_keygen();
-    Ok(halo2_pk)
+    let _ = config;
+    let sdk = sdk_from_keys(app_pk.clone(), agg_pk.clone())?;
+    Ok(sdk.halo2_pk())
 }
 
 /// Generate an EVM-verifiable Halo2/KZG proof by wrapping a STARK proof.
@@ -238,7 +293,6 @@ pub fn generate_halo2_pk(
 /// Much slower than `prove_stark` and requires Halo2 keys.
 #[cfg(feature = "evm-prove")]
 pub fn prove_evm(
-    config: &AppConfig<SdkVmConfig>,
     exe: &VmExe<F>,
     app_pk: &AppProvingKey<SdkVmConfig>,
     agg_pk: &AggProvingKey,
@@ -247,12 +301,14 @@ pub fn prove_evm(
 ) -> Result<EvmProof> {
     let stdin = make_stdin(program_bytes);
 
-    let sdk = Sdk::new(config.clone())?
-        .with_app_pk(app_pk.clone())
-        .with_agg_pk(agg_pk.clone())
-        .with_halo2_pk(halo2_pk.clone());
+    let sdk = Sdk::builder()
+        .app_pk(app_pk.clone())
+        .agg_pk(agg_pk.clone())
+        .halo2_pk(halo2_pk.clone())
+        .build()
+        .map_err(Into::into)?;
 
-    let evm_proof = sdk.prove_evm(Arc::new(exe.clone()), stdin)
+    let evm_proof = sdk.prove_evm(exe.clone(), stdin, &[])
         .wrap_err("EVM Halo2 proof generation failed")?;
 
     Ok(evm_proof)
@@ -262,18 +318,18 @@ pub fn prove_evm(
 ///
 /// Equivalent to `cargo openvm commit`.
 pub fn compute_app_commit(
-    config: &AppConfig<SdkVmConfig>,
     exe: &VmExe<F>,
     app_pk: &AppProvingKey<SdkVmConfig>,
+    agg_pk: &AggProvingKey,
 ) -> Result<(String, String)> {
-    let sdk = Sdk::new(config.clone())?
-        .with_app_pk(app_pk.clone());
-    let prover = sdk.app_prover(Arc::new(exe.clone()))
-        .wrap_err("Failed to create app prover")?;
-    let commit = prover.app_commit();
+    let sdk = sdk_from_keys(app_pk.clone(), agg_pk.clone())?;
+    let prover = sdk.prover(exe.clone())
+        .wrap_err("Failed to create STARK prover")?;
+    let baseline = prover.generate_baseline();
+    let app_vm_commit = CommitBytes::from(prover.app_vm_commit());
 
     Ok((
-        format!("{}", commit.app_exe_commit),
-        format!("{}", commit.app_vm_commit),
+        commit_hex(CommitBytes::from(baseline.app_exe_commit)),
+        commit_hex(app_vm_commit),
     ))
 }

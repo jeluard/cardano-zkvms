@@ -1,19 +1,18 @@
 [workspace]
 members = ["guest", "core"]
-# verify is excluded: it depends on a different openvm branch (feat/v1-verify-stark)
-# and has a `links` conflict with core (circuit-primitives-cuda). It is built
-# independently via wasm-pack.
+# verify is excluded: it is built independently via wasm-pack.
 exclude = ["verify"]
 resolver = "2"
 
 [workspace.dependencies]
 # OpenVM — single place to bump the version for all crates
-openvm = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.4.3" }
-openvm-sdk = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.4.3", default-features = false }
-openvm-stark-sdk = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.3", default-features = false }
-openvm-circuit = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.4.3" }
-openvm-continuations = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.4.3" }
-openvm-stark-backend = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.3", default-features = false }
+openvm = { git = "https://github.com/openvm-org/openvm.git", tag = "v2.0.0-beta.2" }
+openvm-sdk = { git = "https://github.com/openvm-org/openvm.git", tag = "v2.0.0-beta.2", default-features = false }
+openvm-sdk-config = { git = "https://github.com/openvm-org/openvm.git", tag = "v2.0.0-beta.2", package = "openvm-sdk-config", default-features = false }
+openvm-stark-sdk = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v2.0.0-beta.2", default-features = false }
+openvm-circuit = { git = "https://github.com/openvm-org/openvm.git", tag = "v2.0.0-beta.2" }
+openvm-continuations = { git = "https://github.com/openvm-org/openvm.git", tag = "v2.0.0-beta.2" }
+openvm-stark-backend = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v2.0.0-beta.2", default-features = false }
 
 # Shared dependencies
 eyre = "0.6"

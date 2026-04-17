@@ -12,6 +12,7 @@ evm-prove = ["openvm-sdk/evm-prove"]
 
 [dependencies]
 openvm-sdk = { workspace = true }
+openvm-sdk-config = { workspace = true }
 openvm-stark-sdk = { workspace = true }
 openvm-circuit = { workspace = true }
 openvm-continuations = { workspace = true }

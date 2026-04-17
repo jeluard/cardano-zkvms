@@ -4,6 +4,84 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::{error, info};
 
+fn openvm_version_tag() -> String {
+    format!("v{}", openvm_prover::openvm_version())
+}
+
+fn read_version_marker(path: &std::path::Path) -> Option<String> {
+    std::fs::read_to_string(path).ok().map(|value| value.trim().to_string())
+}
+
+fn ensure_parent(path: &std::path::Path) -> eyre::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    Ok(())
+}
+
+fn remove_if_exists(path: &std::path::Path) -> eyre::Result<()> {
+    if path.exists() {
+        std::fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
+fn invalidate_if_version_changed(
+    marker_path: &std::path::Path,
+    expected_version: &str,
+    stale_paths: &[&std::path::Path],
+) -> eyre::Result<()> {
+    if read_version_marker(marker_path).as_deref() == Some(expected_version) {
+        return Ok(());
+    }
+
+    for path in stale_paths {
+        remove_if_exists(path)?;
+    }
+    remove_if_exists(marker_path)?;
+    Ok(())
+}
+
+fn write_version_marker(marker_path: &std::path::Path, version: &str) -> eyre::Result<()> {
+    ensure_parent(marker_path)?;
+    std::fs::write(marker_path, format!("{}\n", version))?;
+    Ok(())
+}
+
+fn invalidate_stale_runtime_artifacts(
+    target_dir: &std::path::Path,
+    openvm_home: &std::path::Path,
+    expected_version: &str,
+) -> eyre::Result<()> {
+    let vmexe_path = target_dir.join("openvm/release/openvm-guest.vmexe");
+    let app_pk_path = target_dir.join("openvm/app.pk");
+    let target_version_path = target_dir.join("openvm/toolchain.version");
+    let agg_pk_path = openvm_home.join("agg_stark.pk");
+    let agg_vk_path = openvm_home.join("agg_stark.vk");
+    let openvm_version_path = openvm_home.join("toolchain.version");
+
+    invalidate_if_version_changed(
+        &target_version_path,
+        expected_version,
+        &[&vmexe_path, &app_pk_path],
+    )?;
+    invalidate_if_version_changed(
+        &openvm_version_path,
+        expected_version,
+        &[&agg_pk_path, &agg_vk_path],
+    )?;
+
+    Ok(())
+}
+
+fn setup_hint(guest_dir: &std::path::Path, expected_version: &str) -> String {
+    format!(
+        "OpenVM artifacts are missing or stale for {}. Run `make build` or `OPENVM_GUEST_DIR={} cargo run --release --manifest-path web/crates/backend/Cargo.toml --bin cardano-zkvms -- setup`.",
+        expected_version,
+        guest_dir.display()
+    )
+}
+
 /// Resolve the OpenVM home directory (~/.openvm or OPENVM_HOME).
 fn openvm_home() -> PathBuf {
     std::env::var("OPENVM_HOME")
@@ -36,9 +114,27 @@ fn cmd_setup() -> eyre::Result<()> {
     let manifest_path = guest_dir.join("guest/Cargo.toml");
     let target_dir = workspace_root.join("target");
     let openvm_home = openvm_home();
+    let expected_version = openvm_version_tag();
 
     // Step 1: Build guest
     let vmexe_path = target_dir.join("openvm/release/openvm-guest.vmexe");
+    let app_pk_path = target_dir.join("openvm/app.pk");
+    let target_version_path = target_dir.join("openvm/toolchain.version");
+    let agg_pk_path = openvm_home.join("agg_stark.pk");
+    let agg_vk_path = openvm_home.join("agg_stark.vk");
+    let openvm_version_path = openvm_home.join("toolchain.version");
+
+    invalidate_if_version_changed(
+        &target_version_path,
+        &expected_version,
+        &[&vmexe_path, &app_pk_path],
+    )?;
+    invalidate_if_version_changed(
+        &openvm_version_path,
+        &expected_version,
+        &[&agg_pk_path, &agg_vk_path],
+    )?;
+
     if vmexe_path.exists() {
         eprintln!("[1/3] Guest vmexe already exists, skipping build");
     } else {
@@ -48,8 +144,7 @@ fn cmd_setup() -> eyre::Result<()> {
     }
 
     // Step 2: Generate app proving key
-    let pk_path = target_dir.join("openvm/app.pk");
-    if pk_path.exists() {
+    if app_pk_path.exists() {
         eprintln!("[2/3] App proving key already exists, skipping keygen");
     } else {
         eprintln!("[2/3] Generating app proving key...");
@@ -58,14 +153,16 @@ fn cmd_setup() -> eyre::Result<()> {
     }
 
     // Step 3: Generate aggregation keys
-    let agg_pk_path = openvm_home.join("agg_stark.pk");
     if agg_pk_path.exists() {
         eprintln!("[3/3] Aggregation keys already exist, skipping setup");
     } else {
         eprintln!("[3/3] Generating aggregation keys (this may take 30+ minutes)...");
-        openvm_prover::generate_agg_keys(&openvm_home)?;
+        openvm_prover::generate_agg_keys(&config_path, &openvm_home)?;
         eprintln!("  Done.");
     }
+
+    write_version_marker(&target_version_path, &expected_version)?;
+    write_version_marker(&openvm_version_path, &expected_version)?;
 
     eprintln!("Setup complete.");
     Ok(())
@@ -78,20 +175,37 @@ struct ProveRequest {
     program_hex: String,
 }
 
+/// Request body for /api/verify.
+#[derive(Debug, Deserialize)]
+struct VerifyRequest {
+    /// Raw STARK proof JSON returned by /api/prove.
+    stark_proof_json: serde_json::Value,
+    /// Version-aware verification baseline returned by /api/prove.
+    verification_baseline_json: openvm_prover::StarkVerificationBaselineJson,
+}
+
 /// Response from /api/prove
 ///
-/// The backend returns raw proof data. All processing (VK construction,
-/// proof byte conversion, zstd compression) happens client-side in JS.
+/// The backend returns raw proof data plus the verification baseline used by
+/// the backend-native OpenVM verifier.
 #[derive(Debug, Serialize)]
 struct ProveResponse {
     /// Whether proof generation succeeded
     success: bool,
+    /// OpenVM major.minor version backing this proof.
+    openvm_version: String,
+    /// STARK proof format version.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proof_version: Option<String>,
     /// SHA256(program_bytes || result_string) as hex
     #[serde(skip_serializing_if = "Option::is_none")]
     commitment: Option<String>,
     /// Raw STARK proof JSON: { "proof": "0x...", "user_public_values": "0x..." }
     #[serde(skip_serializing_if = "Option::is_none")]
     stark_proof_json: Option<serde_json::Value>,
+    /// Version-aware verification baseline for the native verifier.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verification_baseline_json: Option<openvm_prover::StarkVerificationBaselineJson>,
     /// App execution commit hex (from app commit)
     #[serde(skip_serializing_if = "Option::is_none")]
     app_exe_commit: Option<String>,
@@ -102,6 +216,23 @@ struct ProveResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
     /// Duration in seconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    duration_secs: Option<f64>,
+}
+
+/// Response from /api/verify.
+#[derive(Debug, Serialize)]
+struct VerifyResponse {
+    /// Whether the verification request succeeded.
+    success: bool,
+    /// Whether the submitted proof verified successfully.
+    verified: bool,
+    /// OpenVM major.minor version backing this verifier.
+    openvm_version: String,
+    /// Error message if verification failed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+    /// Duration in seconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     duration_secs: Option<f64>,
 }
@@ -124,11 +255,24 @@ struct AppState {
 fn prove_error(error: String, commitment: Option<String>, duration: Option<f64>) -> HttpResponse {
     HttpResponse::InternalServerError().json(ProveResponse {
         success: false,
+        openvm_version: openvm_version_tag(),
+        proof_version: None,
         error: Some(error),
         commitment,
         stark_proof_json: None,
+        verification_baseline_json: None,
         app_exe_commit: None,
         app_vm_commit: None,
+        duration_secs: duration,
+    })
+}
+
+fn verify_error(error: String, duration: Option<f64>) -> HttpResponse {
+    HttpResponse::Ok().json(VerifyResponse {
+        success: false,
+        verified: false,
+        openvm_version: openvm_version_tag(),
+        error: Some(error),
         duration_secs: duration,
     })
 }
@@ -154,9 +298,12 @@ async fn prove(
         Ok(_) => {
             return HttpResponse::BadRequest().json(ProveResponse {
                 success: false,
+                openvm_version: openvm_version_tag(),
+                proof_version: None,
                 error: Some("Empty program".into()),
                 commitment: None,
                 stark_proof_json: None,
+                verification_baseline_json: None,
                 app_exe_commit: None,
                 app_vm_commit: None,
                 duration_secs: None,
@@ -165,9 +312,12 @@ async fn prove(
         Err(e) => {
             return HttpResponse::BadRequest().json(ProveResponse {
                 success: false,
+                openvm_version: openvm_version_tag(),
+                proof_version: None,
                 error: Some(format!("Invalid hex: {}", e)),
                 commitment: None,
                 stark_proof_json: None,
+                verification_baseline_json: None,
                 app_exe_commit: None,
                 app_vm_commit: None,
                 duration_secs: None,
@@ -203,7 +353,7 @@ async fn prove(
         // 2. Generate STARK proof (slow — minutes)
         info!("Generating STARK proof (this may take several minutes)...");
         let prove_result =
-            openvm_prover::prove_stark(&config, &exe, &app_pk, &agg_pk, &program_bytes)
+            openvm_prover::prove_stark(&exe, &app_pk, &agg_pk, &program_bytes)
                 .map_err(|e| format!("STARK proof generation failed: {}", e))?;
 
         let duration = start.elapsed().as_secs_f64();
@@ -211,8 +361,11 @@ async fn prove(
 
         Ok(ProveResponse {
             success: true,
+            openvm_version: openvm_version_tag(),
+            proof_version: Some(prove_result.proof_version),
             commitment: commitment_hex,
             stark_proof_json: Some(prove_result.proof_json),
+            verification_baseline_json: Some(prove_result.baseline_json),
             app_exe_commit: Some(prove_result.app_exe_commit),
             app_vm_commit: Some(prove_result.app_vm_commit),
             error: None,
@@ -254,6 +407,7 @@ async fn serve_agg_stark_vk(data: web::Data<AppState>) -> HttpResponse {
             HttpResponse::Ok()
                 .content_type("application/octet-stream")
                 .append_header(("Cache-Control", "public, max-age=86400"))
+                .append_header(("X-OpenVM-Version", openvm_version_tag()))
                 .body(bytes)
         }
         Err(e) => {
@@ -272,11 +426,64 @@ async fn serve_agg_stark_vk(data: web::Data<AppState>) -> HttpResponse {
     }
 }
 
+/// POST /api/verify
+///
+/// Verify a STARK proof using the server's native OpenVM 2.0 verifier.
+async fn verify(
+    data: web::Data<AppState>,
+    body: web::Json<VerifyRequest>,
+) -> HttpResponse {
+    let started_at = std::time::Instant::now();
+    let openvm_home = data.openvm_home.clone();
+    let proof_json = body.stark_proof_json.clone();
+    let baseline_json = body.verification_baseline_json.clone();
+
+    let result = web::block(move || -> Result<(), String> {
+        let agg_vk_path = openvm_home.join("agg_stark.vk");
+        let agg_vk = openvm_prover::load_agg_vk(&agg_vk_path)
+            .map_err(|e| format!("Failed to load agg_stark.vk: {}", e))?;
+        openvm_prover::verify_stark(&agg_vk, &proof_json, &baseline_json)
+            .map_err(|e| format!("STARK proof verification failed: {}", e))?;
+        Ok(())
+    })
+    .await;
+
+    let duration = started_at.elapsed().as_secs_f64();
+
+    match result {
+        Ok(Ok(())) => {
+            info!("STARK proof verified in {:.1}s", duration);
+            HttpResponse::Ok().json(VerifyResponse {
+                success: true,
+                verified: true,
+                openvm_version: openvm_version_tag(),
+                error: None,
+                duration_secs: Some(duration),
+            })
+        }
+        Ok(Err(e)) => {
+            error!("Verify pipeline error: {}", e);
+            verify_error(e, Some(duration))
+        }
+        Err(e) => {
+            error!("Blocking verify task error: {}", e);
+            HttpResponse::InternalServerError().json(VerifyResponse {
+                success: false,
+                verified: false,
+                openvm_version: openvm_version_tag(),
+                error: Some(format!("Internal error: {}", e)),
+                duration_secs: Some(duration),
+            })
+        }
+    }
+}
+
 /// GET /api/health
 async fn health() -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({
         "status": "ok",
-        "service": "openvm-web-backend"
+        "service": "openvm-web-backend",
+        "openvm_version": openvm_version_tag()
     }))
 }
 
@@ -340,6 +547,10 @@ async fn main() -> std::io::Result<()> {
     let config_path = guest_dir.join("openvm.toml");
     let openvm_home = openvm_home();
     let agg_pk_path = openvm_home.join("agg_stark.pk");
+    let expected_version = openvm_version_tag();
+
+    invalidate_stale_runtime_artifacts(&target_dir, &openvm_home, &expected_version)
+        .expect("Failed to invalidate stale OpenVM artifacts");
 
     info!("  Workspace root:  {}", workspace_root.display());
     info!("  Target dir:      {}", target_dir.display());
@@ -362,16 +573,53 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
+    let missing_paths: Vec<String> = checks
+        .iter()
+        .filter(|(_, path)| !path.exists())
+        .map(|(label, path)| format!("{} ({})", label, path.display()))
+        .collect();
+    if !missing_paths.is_empty() {
+        let hint = setup_hint(&guest_dir, &expected_version);
+        error!("{} Missing: {}", hint, missing_paths.join(", "));
+        eprintln!("{}", hint);
+        eprintln!("Missing artifacts: {}", missing_paths.join(", "));
+        std::process::exit(1);
+    }
+
     // Load all OpenVM artifacts at startup
     info!("Loading OpenVM artifacts...");
     let config = openvm_prover::load_config(&config_path)
         .expect("Failed to load openvm.toml config");
     let exe = openvm_prover::load_exe(&vmexe_path)
         .expect("Failed to load guest vmexe");
-    let app_pk = openvm_prover::load_app_pk(&pk_path)
-        .expect("Failed to load app proving key");
-    let agg_pk = openvm_prover::load_agg_pk(&agg_pk_path)
-        .expect("Failed to load aggregation proving key");
+    let app_pk = openvm_prover::load_app_pk(&pk_path).unwrap_or_else(|err| {
+        let hint = setup_hint(&guest_dir, &expected_version);
+        error!(
+            "Failed to load app proving key from {}: {}. {}",
+            pk_path.display(),
+            err,
+            hint
+        );
+        eprintln!("Failed to load app proving key from {}: {}", pk_path.display(), err);
+        eprintln!("{}", hint);
+        std::process::exit(1);
+    });
+    let agg_pk = openvm_prover::load_agg_pk(&agg_pk_path).unwrap_or_else(|err| {
+        let hint = setup_hint(&guest_dir, &expected_version);
+        error!(
+            "Failed to load aggregation proving key from {}: {}. {}",
+            agg_pk_path.display(),
+            err,
+            hint
+        );
+        eprintln!(
+            "Failed to load aggregation proving key from {}: {}",
+            agg_pk_path.display(),
+            err
+        );
+        eprintln!("{}", hint);
+        std::process::exit(1);
+    });
     info!("All artifacts loaded.");
 
     let state = web::Data::new(AppState {
@@ -394,6 +642,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::JsonConfig::default().limit(10 * 1024 * 1024)) // 10 MB JSON limit
             .route("/api/health", web::get().to(health))
             .route("/api/prove", web::post().to(prove))
+                .route("/api/verify", web::post().to(verify))
             // Serve agg_stark.vk from ~/.openvm/ (generated by `cardano-zkvms setup`)
             .route("/data/agg_stark.vk", web::get().to(serve_agg_stark_vk))
     })

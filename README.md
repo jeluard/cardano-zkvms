@@ -46,9 +46,9 @@ uplc = { path = "../../../uplc", features = ["uplc-turbo"] }
 
 # Web
 
-A simple web UI that allows to prove some UPLC program execution then verify it in your browser.
+A simple web UI that evaluates UPLC locally in the browser, then proves and verifies execution via the backend.
 
-Leverages [OpenVM verify-stark](https://github.com/openvm-org/openvm/tree/feat/v1-verify-stark/crates/verify-stark) compiled to WASM for in-browser STARK proof verification.
+With OpenVM 2.0 beta, STARK proof verification now runs through the backend's native verifier instead of a browser-local WASM verifier.
 
 ## Building & Running
 

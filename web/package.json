@@ -1,15 +1,12 @@
 {
   "name": "openvm-uplc-verifier",
   "version": "0.1.0",
-  "description": "OpenVM UPLC Verifier - Browser-based verification tool",
+  "description": "OpenVM UPLC Verifier - Web UI with backend-native proof verification",
   "type": "module",
   "scripts": {
     "build": "node esbuild.config.js",
     "build:prod": "NODE_ENV=production node esbuild.config.js",
     "dev": "node esbuild.config.js --watch"
-  },
-  "dependencies": {
-    "zstd-codec": "^0.1.5"
   },
   "devDependencies": {
     "esbuild": "^0.19.0"
