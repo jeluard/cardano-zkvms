@@ -400,9 +400,11 @@ async function runEvaluateAndProve() {
 
     // Check we have the raw proof JSON and verification baseline from backend
     if (!data.stark_proof_json || !data.verification_baseline_json) {
+      const availableKeys = Object.keys(data).sort().join(', ') || 'none';
       showResult('proveResult', 'warning',
         `<div class="result-label">Warning</div>` +
-        `<div class="result-value">Missing verification artifacts from backend</div>`
+        `<div class="result-value">Backend proof response is missing verification artifacts. Rebuild and restart the backend if it is stale.</div>` +
+        `<div class="timing">Expected stark_proof_json + verification_baseline_json. Available keys: ${escapeHtml(availableKeys)}</div>`
       );
       stepDone[1] = true;
       busy = false;

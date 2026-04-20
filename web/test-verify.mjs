@@ -73,6 +73,15 @@ async function main() {
     throw new Error(`Proof generation failed: ${prove.error || `HTTP ${proveResp.status}`}`);
   }
 
+  if (!prove.stark_proof_json || !prove.verification_baseline_json) {
+    const availableKeys = Object.keys(prove).sort().join(", ") || "(none)";
+    throw new Error(
+      "Proof generation succeeded but the response is missing verification artifacts. " +
+        "Expected stark_proof_json/verification_baseline_json. " +
+        `Available keys: ${availableKeys}. Rebuild and restart the backend if it is stale.`,
+    );
+  }
+
   // 3. Native verification via backend
   console.log(`  proof version: ${prove.proof_version || prove.stark_proof_json?.version || "unknown"}`);
   console.log(`  commitment:    ${prove.commitment || "n/a"}`);
