@@ -73,9 +73,9 @@ WEB_DIR := $(ROOT_DIR)/web
 BACKEND_BIN := $(WEB_DIR)/crates/backend/target/release/cardano-zkvms
 BACKEND_LINUX_BIN := $(WEB_DIR)/crates/backend/target/x86_64-unknown-linux-gnu/release/cardano-zkvms
 
-# Load configuration from web/conf/.env (optional - for backend deployment)
+# Load configuration from conf/.env (optional - for backend deployment)
 # In GitHub Actions CI, this file won't exist and will be silently skipped
--include web/conf/.env
+-include conf/.env
 
 # SSH destination: uses SSH_USER@SSH_HOST if SSH_USER is set, otherwise just SSH_HOST
 # This lets SSH config handle auth when using aliases (SSH_USER empty)
@@ -162,18 +162,18 @@ backend-package: backend-build ## Package backend binary for deployment
 	@echo "  scp openvm-backend/* user@remote:/path/to/deployment/"
 
 backend-deploy: ## Deploy backend to remote server (builds on server via setup.sh)
-	@bash web/scripts/deploy.sh
+	@bash scripts/deploy.sh
 
 backend-rekey: ## Deploy with forced key regeneration (after OpenVM version change)
-	@FORCE_KEYGEN=1 bash web/scripts/deploy.sh
+	@FORCE_KEYGEN=1 bash scripts/deploy.sh
 
 backend-teardown: ## Remove everything installed on the remote host by backend-deploy
-	@bash web/scripts/teardown.sh
+	@bash scripts/teardown.sh
 
 
 gh-secrets: ## Set GitHub secret BACKEND_URL_PROD from .env file
 	@if [ -z "$(BACKEND_URL)" ]; then \
-		echo "❌ BACKEND_URL not set in web/conf/.env"; \
+		echo "❌ BACKEND_URL not set in conf/.env"; \
 		exit 1; \
 	fi
 	@command -v gh > /dev/null || { echo "❌ gh CLI not installed. Install from https://github.com/cli/cli"; exit 1; }

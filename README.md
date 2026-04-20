@@ -39,6 +39,7 @@ Edit the feature flags in:
 - Any crate depending on `uplc`
 
 Example:
+
 ```toml
 # Switch from uplc-turbo-riscv to uplc-turbo
 uplc = { path = "../../../uplc", features = ["uplc-turbo"] }
@@ -63,3 +64,45 @@ npm run build:prod  # Production build with minification
 ## Deployment
 
 The web UI is automatically deployed to GitHub Pages via GitHub Actions on every push to `main`.
+
+Backend deployment helpers now live at the repository root so `web/` only contains the frontend and backend application code:
+
+- `scripts/deploy.sh`
+- `scripts/setup.sh`
+- `scripts/teardown.sh`
+- `scripts/build-backend-remote.sh`
+- `conf/.env.example`
+- `conf/Caddyfile.template`
+- `conf/cardano-zkvms.service.template`
+
+Start from `conf/.env.example` and write your local values to `conf/.env` before using the deployment targets:
+
+```bash
+SSH_HOST=your-server
+REMOTE_PATH=/opt/cardano-zkvms
+OPENVM_GUEST_DIR=crates/zkvms/openvm
+CADDY_DOMAIN=zk.example.com
+CADDY_PORT=443
+BACKEND_PORT=8080
+
+# Optional
+SSH_USER=ubuntu
+SSH_KEY_PATH=~/.ssh/id_ed25519
+BACKEND_URL=https://zk.example.com
+```
+
+Useful commands:
+
+```bash
+make backend-build
+make backend-deploy
+make backend-rekey
+make backend-teardown
+make gh-secrets
+make backend-logs
+make caddy-logs
+```
+
+Run the deploy scripts from the repository root; the Makefile targets above already do that.
+
+If you already have a local web/conf/.env, move it to conf/.env.

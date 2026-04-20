@@ -10,16 +10,16 @@ if [ ! -f "Makefile" ]; then
 fi
 
 # Load environment variables
-if [ ! -f "web/conf/.env" ]; then
-    echo "❌ .env file not found at web/conf/.env"
+if [ ! -f "conf/.env" ]; then
+    echo "❌ .env file not found at conf/.env"
     exit 1
 fi
-source web/conf/.env
+source conf/.env
 
 # Check if required variables are set
 for var in SSH_HOST REMOTE_PATH OPENVM_GUEST_DIR CADDY_DOMAIN CADDY_PORT BACKEND_PORT; do
     if [ -z "${!var}" ]; then
-        echo "❌ Error: $var is not set in web/conf/.env"
+        echo "❌ Error: $var is not set in conf/.env"
         exit 1
     fi
 done
@@ -40,17 +40,17 @@ echo "🚀 Deploying Cardano ZKVMs Backend & Caddy"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-if [ ! -f "web/conf/cardano-zkvms.service.template" ]; then
+if [ ! -f "conf/cardano-zkvms.service.template" ]; then
     echo "❌ Service template not found"
     exit 1
 fi
 
-if [ ! -f "web/scripts/setup.sh" ]; then
+if [ ! -f "scripts/setup.sh" ]; then
     echo "❌ Setup script not found"
     exit 1
 fi
 
-if [ ! -f "web/conf/Caddyfile.template" ]; then
+if [ ! -f "conf/Caddyfile.template" ]; then
     echo "❌ Caddyfile template not found"
     exit 1
 fi
@@ -77,9 +77,9 @@ rsync -az --delete -e "$RSYNC_SSH" \
     --include='crates/zkvms/openvm/core/' \
     --include='crates/zkvms/openvm/core/Cargo.toml' \
     --include='crates/zkvms/openvm/core/src/***' \
+    --include='scripts/' \
+    --include='scripts/setup.sh' \
     --include='web/' \
-    --include='web/scripts/' \
-    --include='web/scripts/setup.sh' \
     --include='web/crates/' \
     --include='web/crates/backend/' \
     --include='web/crates/backend/Cargo.toml' \
@@ -88,7 +88,7 @@ rsync -az --delete -e "$RSYNC_SSH" \
     --exclude='*' \
     ./ "$SSH_DEST:$REMOTE_PATH/"
 # setup.sh is expected at the root by the deploy flow
-rsync -az -e "$RSYNC_SSH" web/scripts/setup.sh "$SSH_DEST:$REMOTE_PATH/setup.sh"
+rsync -az -e "$RSYNC_SSH" scripts/setup.sh "$SSH_DEST:$REMOTE_PATH/setup.sh"
 
 
 # Step 2: Run setup
@@ -106,7 +106,7 @@ ssh $SSH_OPTS $SSH_DEST "command -v caddy >/dev/null 2>&1 || (sudo apt-get updat
 
 # Step 4: Install systemd service
 echo "🎯 4. [local → remote] Installing systemd service..."
-sed "s|\${REMOTE_PATH}|$REMOTE_PATH|g" web/conf/cardano-zkvms.service.template | \
+sed "s|\${REMOTE_PATH}|$REMOTE_PATH|g" conf/cardano-zkvms.service.template | \
     sed "s|\${OPENVM_GUEST_DIR}|$OPENVM_GUEST_DIR|g" | \
     sed "s|\${BACKEND_PORT}|$BACKEND_PORT|g" | \
     ssh $SSH_OPTS $SSH_DEST "sudo tee /etc/systemd/system/cardano-zkvms.service >/dev/null"
@@ -114,7 +114,7 @@ ssh $SSH_OPTS $SSH_DEST "sudo systemctl daemon-reload"
 
 # Step 5: Setup reverse proxy
 echo "🔀 5. [local → remote] Setting up reverse proxy..."
-sed "s|\${CADDY_DOMAIN}|$CADDY_DOMAIN|g" web/conf/Caddyfile.template | \
+sed "s|\${CADDY_DOMAIN}|$CADDY_DOMAIN|g" conf/Caddyfile.template | \
     sed "s|\${CADDY_PORT}|$CADDY_PORT|g" | \
     sed "s|\${BACKEND_PORT}|$BACKEND_PORT|g" | \
     ssh $SSH_OPTS $SSH_DEST "sudo tee /etc/caddy/Caddyfile >/dev/null"

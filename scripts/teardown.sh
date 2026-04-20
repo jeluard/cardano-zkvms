@@ -7,11 +7,11 @@ if [ ! -f "Makefile" ]; then
     exit 1
 fi
 
-if [ ! -f "web/conf/.env" ]; then
-    echo "❌ .env file not found at web/conf/.env"
+if [ ! -f "conf/.env" ]; then
+    echo "❌ .env file not found at conf/.env"
     exit 1
 fi
-source web/conf/.env
+source conf/.env
 
 SSH_DEST="${SSH_USER:+$SSH_USER@}$SSH_HOST"
 if [ -n "$SSH_KEY_PATH" ]; then

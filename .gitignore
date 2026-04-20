@@ -3,4 +3,4 @@
 **/node_modules/
 web/crates/aiken-wasm/stdlib/
 .env
-web/conf/.env
+conf/.env

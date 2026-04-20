@@ -30,7 +30,7 @@ if [ -f target/release/cardano-zkvms ]; then
     SIZE=$(ls -lh target/release/cardano-zkvms | awk '{print $5}')
     echo "✅ Backend built successfully: $SIZE"
     echo "   Binary: $(file target/release/cardano-zkvms | cut -d: -f2-)"
-    
+
     # Copy to deployment location
     cp target/release/cardano-zkvms $HOME/cardano-zkvms/cardano-zkvms
     chmod +x $HOME/cardano-zkvms/cardano-zkvms
@@ -40,4 +40,3 @@ else
     exit 1
 fi
 EOF
-
