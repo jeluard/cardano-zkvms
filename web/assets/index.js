@@ -32,8 +32,8 @@ const staticAggStarkVkUrl = new URL('../data/agg_stark.vk', import.meta.url);
 
 function getAggStarkVkUrls() {
   return [...new Set([
-    staticAggStarkVkUrl.href,
     config.apiUrl('/data/agg_stark.vk'),
+    staticAggStarkVkUrl.href,
   ])];
 }
 

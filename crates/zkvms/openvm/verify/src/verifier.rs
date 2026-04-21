@@ -25,11 +25,11 @@ const VM_PVS_LEN: usize = DIGEST_SIZE * 3 + 4;
 
 #[derive(Clone, Copy, Debug)]
 struct VerifierBasePvs<T> {
-    is_internal: T,
+    internal_flag: T,
     app_vk_commit: VkCommit<T>,
     leaf_vk_commit: VkCommit<T>,
-    constraint_eval_vk_commit: VkCommit<T>,
-    is_recursive: T,
+    internal_for_leaf_vk_commit: VkCommit<T>,
+    recursion_flag: T,
     internal_recursive_vk_commit: VkCommit<T>,
 }
 
@@ -83,14 +83,14 @@ fn verify_vm_stark_proof_pvs(
     }
 
     let verifier_base_pvs = parse_verifier_base_pvs(&verifier_pvs[..VERIFIER_BASE_PVS_LEN]);
-    if verifier_base_pvs.is_internal != F::ZERO {
+    if verifier_base_pvs.internal_flag != F::TWO {
         return Err(VerifyStarkError::InvalidInternalFlag(
-            verifier_base_pvs.is_internal,
+            verifier_base_pvs.internal_flag,
         ));
     }
-    if verifier_base_pvs.is_recursive != F::ZERO {
+    if verifier_base_pvs.recursion_flag != F::ONE && verifier_base_pvs.recursion_flag != F::TWO {
         return Err(VerifyStarkError::InvalidRecursionFlag(
-            verifier_base_pvs.is_recursive,
+            verifier_base_pvs.recursion_flag,
         ));
     }
 
@@ -122,25 +122,13 @@ fn verify_vm_stark_proof_pvs(
         "internal_for_leaf_vk_commit",
         "cached_commit",
         &baseline.internal_for_leaf_vk_commit.cached_commit,
-        &verifier_base_pvs.constraint_eval_vk_commit.cached_commit,
+        &verifier_base_pvs.internal_for_leaf_vk_commit.cached_commit,
     )?;
     ensure_commit_eq(
         "internal_for_leaf_vk_commit",
         "vk_pre_hash",
         &baseline.internal_for_leaf_vk_commit.vk_pre_hash,
-        &verifier_base_pvs.constraint_eval_vk_commit.vk_pre_hash,
-    )?;
-    ensure_commit_eq(
-        "internal_recursive_vk_commit",
-        "cached_commit",
-        &baseline.internal_recursive_vk_commit.cached_commit,
-        &verifier_base_pvs.internal_recursive_vk_commit.cached_commit,
-    )?;
-    ensure_commit_eq(
-        "internal_recursive_vk_commit",
-        "vk_pre_hash",
-        &baseline.internal_recursive_vk_commit.vk_pre_hash,
-        &verifier_base_pvs.internal_recursive_vk_commit.vk_pre_hash,
+        &verifier_base_pvs.internal_for_leaf_vk_commit.vk_pre_hash,
     )?;
 
     let vm_pvs = proof
@@ -203,12 +191,43 @@ fn verify_vm_stark_proof_pvs(
             cached_idx: CONSTRAINT_EVAL_CACHED_INDEX,
         })?
         .into();
-    ensure_commit_eq(
-        "constraint_eval_trace",
-        "cached_commit",
-        &verifier_base_pvs.constraint_eval_vk_commit.cached_commit,
-        &proof_cached_commit,
-    )?;
+    if verifier_base_pvs.recursion_flag == F::TWO {
+        ensure_commit_eq(
+            "internal_recursive_vk_commit",
+            "cached_commit",
+            &baseline.internal_recursive_vk_commit.cached_commit,
+            &verifier_base_pvs.internal_recursive_vk_commit.cached_commit,
+        )?;
+        ensure_commit_eq(
+            "internal_recursive_vk_commit",
+            "vk_pre_hash",
+            &baseline.internal_recursive_vk_commit.vk_pre_hash,
+            &verifier_base_pvs.internal_recursive_vk_commit.vk_pre_hash,
+        )?;
+        ensure_commit_eq(
+            "constraint_eval_trace",
+            "cached_commit",
+            &baseline.internal_recursive_vk_commit.cached_commit,
+            &proof_cached_commit,
+        )?;
+    } else {
+        ensure_commit_unset(
+            "internal_recursive_vk_commit",
+            "cached_commit",
+            &verifier_base_pvs.internal_recursive_vk_commit.cached_commit,
+        )?;
+        ensure_commit_unset(
+            "internal_recursive_vk_commit",
+            "vk_pre_hash",
+            &verifier_base_pvs.internal_recursive_vk_commit.vk_pre_hash,
+        )?;
+        ensure_commit_eq(
+            "constraint_eval_trace",
+            "cached_commit",
+            &baseline.internal_for_leaf_vk_commit.cached_commit,
+            &proof_cached_commit,
+        )?;
+    }
 
     Ok(())
 }
@@ -231,24 +250,24 @@ fn compute_exe_commit(
 
 fn parse_verifier_base_pvs(values: &[F]) -> VerifierBasePvs<F> {
     let mut offset = 0;
-    let is_internal = values[offset];
+    let internal_flag = values[offset];
     offset += 1;
     let app_vk_commit = parse_vk_commit(&values[offset..offset + VK_COMMIT_LEN]);
     offset += VK_COMMIT_LEN;
     let leaf_vk_commit = parse_vk_commit(&values[offset..offset + VK_COMMIT_LEN]);
     offset += VK_COMMIT_LEN;
-    let constraint_eval_vk_commit = parse_vk_commit(&values[offset..offset + VK_COMMIT_LEN]);
+    let internal_for_leaf_vk_commit = parse_vk_commit(&values[offset..offset + VK_COMMIT_LEN]);
     offset += VK_COMMIT_LEN;
-    let is_recursive = values[offset];
+    let recursion_flag = values[offset];
     offset += 1;
     let internal_recursive_vk_commit = parse_vk_commit(&values[offset..offset + VK_COMMIT_LEN]);
 
     VerifierBasePvs {
-        is_internal,
+        internal_flag,
         app_vk_commit,
         leaf_vk_commit,
-        constraint_eval_vk_commit,
-        is_recursive,
+        internal_for_leaf_vk_commit,
+        recursion_flag,
         internal_recursive_vk_commit,
     }
 }
@@ -306,4 +325,13 @@ fn ensure_commit_eq(
             actual: CommitBytes::from_digest(actual),
         })
     }
+}
+
+fn ensure_commit_unset(
+    kind: &'static str,
+    field: &'static str,
+    actual: &Digest,
+) -> Result<(), VerifyStarkError> {
+    let expected = [F::ZERO; DIGEST_SIZE];
+    ensure_commit_eq(kind, field, &expected, actual)
 }

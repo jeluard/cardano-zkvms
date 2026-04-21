@@ -16,8 +16,14 @@ use crate::public_values::UserPublicValuesProof;
 
 pub const BN254_BYTES: usize = 32;
 pub const ADDR_SPACE_OFFSET: u32 = 1;
+pub const SUPPORTED_PROOF_VERSION: &str = "v2.0";
+const LEGACY_SUPPORTED_PROOF_VERSION: &str = "2.0";
 
 pub type Digest = [F; DIGEST_SIZE];
+
+fn is_supported_proof_version(version: &str) -> bool {
+    matches!(version, SUPPORTED_PROOF_VERSION | LEGACY_SUPPORTED_PROOF_VERSION)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 pub struct MemoryDimensions {
@@ -179,16 +185,35 @@ impl TryFrom<VersionedVmStarkProof> for VmStarkProof {
     type Error = std::io::Error;
 
     fn try_from(value: VersionedVmStarkProof) -> Result<Self, Self::Error> {
-        let inner = Proof::<SC>::decode(&mut Cursor::new(&value.proof))?;
+        let VersionedVmStarkProof {
+            version,
+            proof,
+            user_pvs_proof,
+            deferral_merkle_proofs,
+        } = value;
+
+        if !is_supported_proof_version(&version) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "unsupported proof version `{}` (expected {} or {})",
+                    version,
+                    SUPPORTED_PROOF_VERSION,
+                    LEGACY_SUPPORTED_PROOF_VERSION,
+                ),
+            ));
+        }
+
+        let inner = Proof::<SC>::decode(&mut Cursor::new(&proof))?;
         let user_pvs_proof =
             UserPublicValuesProof::<DIGEST_SIZE, F>::decode::<SC, _>(&mut Cursor::new(
-                &value.user_pvs_proof,
+                &user_pvs_proof,
             ))?;
 
         Ok(Self {
             inner,
             user_pvs_proof,
-            deferral_merkle_proofs: value.deferral_merkle_proofs,
+            deferral_merkle_proofs,
         })
     }
 }

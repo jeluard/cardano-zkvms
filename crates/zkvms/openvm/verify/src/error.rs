@@ -18,9 +18,9 @@ pub enum VerifyStarkError {
     InvalidVerifierPvsLength { expected: usize, actual: usize },
     #[error("VM public values too short: expected at least {expected}, actual {actual}")]
     InvalidVmPvsLength { expected: usize, actual: usize },
-    #[error("Unexpected internal proof flag: {0:?}")]
+    #[error("Invalid internal proof flag: {0:?} (expected 2 for final internal-recursive proof)")]
     InvalidInternalFlag(F),
-    #[error("Unexpected recursive proof flag: {0:?}")]
+    #[error("Invalid recursion flag: {0:?} (expected 1 or 2)")]
     InvalidRecursionFlag(F),
     #[error("Commit mismatch for {kind}.{field}: expected {expected}, actual {actual}")]
     CommitMismatch {
