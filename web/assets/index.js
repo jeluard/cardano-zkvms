@@ -28,7 +28,33 @@ import { config } from './config.js';
 
 // ——— WASM Loading ———
 
-const aggStarkVkUrl = new URL('../data/agg_stark.vk', import.meta.url);
+const staticAggStarkVkUrl = new URL('../data/agg_stark.vk', import.meta.url);
+
+function getAggStarkVkUrls() {
+  return [...new Set([
+    staticAggStarkVkUrl.href,
+    config.apiUrl('/data/agg_stark.vk'),
+  ])];
+}
+
+async function loadAggStarkVk() {
+  let lastError = null;
+
+  for (const url of getAggStarkVkUrls()) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        throw new Error(`Failed to load agg_stark.vk from ${url} (${resp.status})`);
+      }
+
+      return new Uint8Array(await resp.arrayBuffer());
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new Error('Failed to load agg_stark.vk');
+}
 
 async function loadUplcWasm() {
   try {
@@ -59,12 +85,7 @@ async function loadOpenVmVerifierWasm() {
     const mod = await import('../openvm-verifier/openvm_wasm_verifier.js');
     await mod.default();
 
-    const resp = await fetch(aggStarkVkUrl);
-    if (!resp.ok) {
-      throw new Error(`Failed to load agg_stark.vk (${resp.status})`);
-    }
-
-    aggStarkVkBytes = new Uint8Array(await resp.arrayBuffer());
+    aggStarkVkBytes = await loadAggStarkVk();
     openVmVerifierWasm = mod;
     setStatus('starkStatus', 'ready', 'WASM Verify');
     updateSteps();

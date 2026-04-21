@@ -35,6 +35,7 @@ println!("Implementation: {}", evaluator.version());
 ### Switching UPLC Implementations
 
 Edit the feature flags in:
+
 - `crates/zkvms/openvm/guest/Cargo.toml` - for OpenVM guest
 - Any crate depending on `uplc`
 
@@ -47,9 +48,26 @@ uplc = { path = "../../../uplc", features = ["uplc-turbo"] }
 
 # Web
 
-A simple web UI that evaluates UPLC locally in the browser, then proves and verifies execution via the backend.
+A simple web UI that evaluates UPLC locally in the browser, sends the program to the backend for proof generation, then performs the final STARK verification locally in the browser via WASM.
 
-With OpenVM 2.0 beta, STARK proof verification now runs through the backend's native verifier instead of a browser-local WASM verifier.
+The browser verifier needs `agg_stark.vk`. It first tries the deployed static asset, then falls back to the configured backend at `/data/agg_stark.vk`, which keeps the GitHub Pages deployment working even when the key is not bundled into the static site.
+
+# Embedded
+
+An `embedded/` sub-workspace now defines the first device-facing slice of the OpenVM 2 flow:
+
+- a `no_std` proof envelope format,
+- a host-side packer that converts `/api/prove` responses into compact framed artifacts,
+- and compile-clean RP2350 / app / verifier scaffolding for the next milestones.
+
+Useful commands:
+
+```bash
+make embedded-check
+make embedded-test
+make embedded-freeze-fixture
+cargo run --manifest-path embedded/Cargo.toml -p proof-pack -- help
+```
 
 ## Building & Running
 
@@ -64,6 +82,8 @@ npm run build:prod  # Production build with minification
 ## Deployment
 
 The web UI is automatically deployed to GitHub Pages via GitHub Actions on every push to `main`.
+
+The configured backend must also expose `/api/health`, `/api/prove`, and `/data/agg_stark.vk`.
 
 Backend deployment helpers now live at the repository root so `web/` only contains the frontend and backend application code:
 
