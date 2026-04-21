@@ -9,6 +9,7 @@ on:
     paths:
       - 'web/**'
       - 'crates/**'
+      - 'scripts/**'
       - '.github/workflows/CD.yml'
       - 'Makefile'
   workflow_dispatch:

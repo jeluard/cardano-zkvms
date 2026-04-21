@@ -16,6 +16,7 @@ OPENVM_HOME="${HOME}/.openvm"
 BACKEND_DIR="$REPO_PATH/web/crates/backend"
 BACKEND_BIN="$BACKEND_DIR/target/release/cardano-zkvms"
 CARDANO_ZKVMS="$REPO_PATH/cardano-zkvms"
+CARDANO_ZKVMS_TMP="$REPO_PATH/cardano-zkvms.new"
 
 echo ""
 echo "⚙️  Cardano ZKVMs — Remote Setup"
@@ -60,7 +61,9 @@ source $HOME/.cargo/env 2>/dev/null || true
 cd "$REPO_PATH"
 if cargo build --release --manifest-path "$BACKEND_DIR/Cargo.toml" 2>&1 | tail -5; then
     if [ -f "$BACKEND_BIN" ]; then
-        cp "$BACKEND_BIN" "$CARDANO_ZKVMS"
+        cp "$BACKEND_BIN" "$CARDANO_ZKVMS_TMP"
+        chmod +x "$CARDANO_ZKVMS_TMP"
+        mv -f "$CARDANO_ZKVMS_TMP" "$CARDANO_ZKVMS"
         chmod +x "$CARDANO_ZKVMS"
         echo "   ✓ Built and installed"
     else
