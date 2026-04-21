@@ -1,7 +1,7 @@
 {
   "name": "openvm-uplc-verifier",
   "version": "0.1.0",
-  "description": "OpenVM UPLC Verifier - Web UI with backend-native proof verification",
+  "description": "OpenVM UPLC Verifier - Web UI with browser-local STARK verification",
   "type": "module",
   "scripts": {
     "build": "node esbuild.config.js",

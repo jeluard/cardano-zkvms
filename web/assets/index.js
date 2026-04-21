@@ -1,6 +1,8 @@
 // ——— State ———
 let uplcWasm = null;
 let aikenWasm = null;
+let openVmVerifierWasm = null;
+let aggStarkVkBytes = null;
 let starkProofJson = null;
 let starkVerificationBaselineJson = null;
 let starkProofVersion = null;
@@ -26,6 +28,8 @@ import { config } from './config.js';
 
 // ——— WASM Loading ———
 
+const aggStarkVkUrl = new URL('../data/agg_stark.vk', import.meta.url);
+
 async function loadUplcWasm() {
   try {
     const mod = await import('../uplc/uplc_wasm.js');
@@ -50,6 +54,29 @@ async function loadAikenWasm() {
   }
 }
 
+async function loadOpenVmVerifierWasm() {
+  try {
+    const mod = await import('../openvm-verifier/openvm_wasm_verifier.js');
+    await mod.default();
+
+    const resp = await fetch(aggStarkVkUrl);
+    if (!resp.ok) {
+      throw new Error(`Failed to load agg_stark.vk (${resp.status})`);
+    }
+
+    aggStarkVkBytes = new Uint8Array(await resp.arrayBuffer());
+    openVmVerifierWasm = mod;
+    setStatus('starkStatus', 'ready', 'WASM Verify');
+    updateSteps();
+  } catch (e) {
+    openVmVerifierWasm = null;
+    aggStarkVkBytes = null;
+    setStatus('starkStatus', 'error', 'WASM Verify');
+    console.error('Failed to load OpenVM verifier WASM:', e);
+    updateSteps();
+  }
+}
+
 async function checkBackend() {
   try {
     const resp = await fetch(config.apiUrl('/api/health'), { signal: AbortSignal.timeout(3000) });
@@ -57,7 +84,6 @@ async function checkBackend() {
       backendAvailable = true;
       backendStatus = 'available';
       setStatus('backendStatus', 'ready', 'Backend');
-      setStatus('starkStatus', 'ready', 'Native Verify');
       hideBackendBanner();
       updateProofUIVisibility();
       updateSteps();
@@ -68,7 +94,6 @@ async function checkBackend() {
     backendAvailable = false;
     backendStatus = 'unavailable';
     setStatus('backendStatus', 'error', 'Backend');
-    setStatus('starkStatus', 'error', 'Native Verify');
     showBackendBanner();
     updateProofUIVisibility();
     updateSteps();
@@ -103,9 +128,10 @@ function updateSteps() {
   setCardState('card3', stepDone[1], stepDone[2]);
   document.getElementById('commitBtn').disabled = busy || !stepDone[1];
 
-  // Step 4: enabled if step 3 is done and backend verification is available
-  const s4ready = stepDone[2] && backendAvailable && starkProofJson && starkVerificationBaselineJson;
-  setCardState('card4', stepDone[2] && backendAvailable, stepDone[3]);
+  // Step 4: enabled if step 3 is done and the browser verifier is ready.
+  const starkVerifierReady = !!openVmVerifierWasm && !!aggStarkVkBytes;
+  const s4ready = stepDone[2] && starkVerifierReady && starkProofJson && starkVerificationBaselineJson;
+  setCardState('card4', stepDone[2] && starkVerifierReady, stepDone[3]);
   document.getElementById('starkBtn').disabled = busy || !s4ready;
 
   // Compile button (step 0)
@@ -419,8 +445,11 @@ async function runEvaluateAndProve() {
     lastUserPublicValues = normalizePublicValuesHex(data.commitment);
 
     const proofJsonSize = fmtBytes(new TextEncoder().encode(JSON.stringify(starkProofJson)).length);
+    const verificationStatus = openVmVerifierWasm && aggStarkVkBytes
+      ? 'browser WASM ready'
+      : 'browser WASM unavailable';
     document.getElementById('proofInfo').textContent =
-      `Proof JSON: ${proofJsonSize}. Baseline: ready. Verification: native backend.`;
+      `Proof JSON: ${proofJsonSize}. Baseline: ready. Verification: ${verificationStatus}.`;
 
     showResult('proveResult', 'success',
       `<div class="result-label">Proof Generated</div>` +
@@ -547,8 +576,11 @@ function runCommitmentCheck() {
 // ——— Step 4: STARK Verification ———
 
 async function runStarkVerification() {
-  if (!backendAvailable) {
-    return showResult('starkResult', 'error', 'Backend unavailable. Native verification requires the backend API.');
+  if (!openVmVerifierWasm) {
+    return showResult('starkResult', 'error', 'Verifier WASM unavailable. Reload the page or rebuild the verifier bundle.');
+  }
+  if (!aggStarkVkBytes) {
+    return showResult('starkResult', 'error', 'Aggregation verification key unavailable.');
   }
   if (!starkProofJson) {
     return showResult('starkResult', 'error', 'Proof not available. Run Evaluate & Prove first.');
@@ -561,28 +593,25 @@ async function runStarkVerification() {
 
   busy = true;
   updateSteps();
-  const btn = document.getElementById('starkBtn');
   setPipeActive(4);
   showResult('starkResult', 'info',
     `<div class="result-label">STARK Verification</div>` +
-    `<div class="result-value">Verifying proof via the server's native OpenVM verifier… this may take a moment.</div>`
+    `<div class="result-value">Verifying proof locally in your browser via WASM… this may take a moment.</div>`
   );
 
   // Yield to allow UI to update
   await new Promise(resolve => setTimeout(resolve, 50));
 
   try {
-    const resp = await fetch(config.apiUrl('/api/verify'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        stark_proof_json: starkProofJson,
-        verification_baseline_json: starkVerificationBaselineJson,
-      }),
-    });
-    const result = await resp.json();
+    const t0 = performance.now();
+    const verified = openVmVerifierWasm.verify_stark(
+      JSON.stringify(starkProofJson),
+      aggStarkVkBytes,
+      JSON.stringify(starkVerificationBaselineJson),
+    );
+    const dt = (performance.now() - t0) / 1000;
 
-    if (resp.ok && result.success && result.verified) {
+    if (verified) {
       stepDone[3] = true;
       updateSteps();
 
@@ -596,8 +625,8 @@ async function runStarkVerification() {
 
       showResult('starkResult', 'success',
         `<div class="result-label">STARK Proof Verified</div>` +
-        `<div class="result-value">The server's native OpenVM verifier confirmed the proof is valid.</div>` +
-        `<div class="timing">Verified in ${Number(result.duration_secs || 0).toFixed(1)}s</div>` +
+        `<div class="result-value">The browser's OpenVM verifier confirmed the proof is valid.</div>` +
+        `<div class="timing">Verified locally in ${dt.toFixed(1)}s</div>` +
         pvHtml
       );
     } else {
@@ -605,7 +634,8 @@ async function runStarkVerification() {
       setCardFail('card4');
       showResult('starkResult', 'error',
         `<div class="result-label">STARK Verification Failed</div>` +
-        `<div class="result-value">${escapeHtml(result.error || `HTTP ${resp.status}`)}</div>`
+        `<div class="result-value">The browser verifier rejected the proof.</div>` +
+        `<div class="timing">Checked locally in ${dt.toFixed(1)}s</div>`
       );
     }
   } catch (e) {
@@ -617,7 +647,6 @@ async function runStarkVerification() {
     );
   }
 
-  btn.disabled = false;
   busy = false;
   updateSteps();
 };
@@ -698,7 +727,7 @@ function showVerdict(pass) {
   const v = document.getElementById('verdict');
   v.className = `verdict visible ${pass ? 'pass' : 'fail'}`;
   v.innerHTML = pass
-    ? `<div class="verdict-icon">&#x2705;</div><h3>Verification Passed</h3><p>The UPLC program was honestly evaluated inside the OpenVM zkVM.<br><span style="font-size:0.75rem;color:var(--text-muted)">Evaluation and commitment checking ran locally in your browser. Proof generation and STARK verification used the backend's native OpenVM 2.0 verifier.</span></p>`
+    ? `<div class="verdict-icon">&#x2705;</div><h3>Verification Passed</h3><p>The UPLC program was honestly evaluated inside the OpenVM zkVM.<br><span style="font-size:0.75rem;color:var(--text-muted)">Evaluation, commitment checking, and final STARK verification ran locally in your browser. Only proof generation used the backend.</span></p>`
     : `<div class="verdict-icon">&#x274C;</div><h3>Verification Failed</h3><p>The proof could not be verified.</p>`;
 }
 
@@ -775,6 +804,7 @@ document.getElementById('bannerCloseBtn')?.addEventListener('click', hideBackend
 
 loadUplcWasm();
 loadAikenWasm();
+loadOpenVmVerifierWasm();
 updateProofUIVisibility();  // Set initial visibility based on backendStatus
 checkBackend();
 updateSteps();

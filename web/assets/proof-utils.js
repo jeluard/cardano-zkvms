@@ -1,9 +1,8 @@
 /**
  * Client-side helpers for the web verifier UI.
  *
- * The browser still checks the program output and commitment locally. The
- * cryptographic proof itself is now verified by the backend's native OpenVM
- * verifier.
+ * The browser checks the program output, commitment, and final STARK proof
+ * locally.
  */
 
 export function normalizePublicValuesHex(hex) {

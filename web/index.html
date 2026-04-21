@@ -32,7 +32,7 @@
     <!-- Header -->
     <div class="header">
       <h1>ZK UPLC Verifier</h1>
-      <p>Evaluate Cardano UPLC locally in your browser, then generate and verify an OpenVM proof via the backend's native verifier.</p>
+      <p>Evaluate Cardano UPLC locally in your browser, generate an OpenVM proof on the backend, then verify that proof locally via WASM.</p>
     </div>
 
     <!-- WASM status -->
@@ -44,7 +44,7 @@
         <span id="uplcStatus" class="status-badge loading"><span class="status-dot"></span> UPLC WASM</span>
       </div>
       <div class="wasm-item">
-        <span id="starkStatus" class="status-badge loading"><span class="status-dot"></span> Native Verify</span>
+        <span id="starkStatus" class="status-badge loading"><span class="status-dot"></span> WASM Verify</span>
       </div>
       <div class="wasm-item">
         <span id="backendStatus" class="status-badge loading"><span class="status-dot"></span> Backend</span>
@@ -222,14 +222,14 @@ test fib_10() {
         <div class="card-icon">&#x2714;</div>
         <div>
           <h2>STARK Proof Verification</h2>
-          <div class="subtitle">Cryptographically verify the STARK proof via the backend's native OpenVM verifier</div>
+          <div class="subtitle">Cryptographically verify the STARK proof locally in your browser via WASM</div>
           <div class="exec-badges">
-            <span class="exec-badge remote"><span class="exec-icon">&#x2601;</span> Server &middot; Native</span>
+            <span class="exec-badge local"><span class="exec-icon">&#x1F5A5;</span> Local &middot; WASM</span>
           </div>
         </div>
       </div>
 
-      <div class="proof-info" id="proofInfo">Proof and verification key will be loaded from the prove step.</div>
+      <div class="proof-info" id="proofInfo">Proof, baseline, and verification key will be loaded before the final check.</div>
 
       <div class="button-row">
         <button class="btn btn-primary" id="starkBtn" disabled>
@@ -238,7 +238,7 @@ test fib_10() {
       </div>
       <div class="result-box" id="starkResult"></div>
     </div>
-    <div class="step-aside">The final check now uses the server's native OpenVM 2.0 verifier. This matches the supported beta verifier path, but unlike the older browser-only flow it does rely on the server to run the cryptographic verification.</div>
+    <div class="step-aside">The final check runs inside your browser using the OpenVM WASM verifier. Proof generation still uses the backend, but the proof itself is not sent back to the server for verification.</div>
     </div>
 
     <!-- Final Verdict -->

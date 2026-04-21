@@ -1,7 +1,12 @@
-use openvm_sdk::types::{VerificationBaselineJson, VersionedVmStarkProof};
-use openvm_sdk::Sdk;
+mod error;
+mod hasher;
+mod public_values;
+mod types;
+mod verifier;
+
 use openvm_stark_backend::keygen::types::MultiStarkVerifyingKey;
-use openvm_verify_stark_host::VmStarkProof;
+use openvm_stark_sdk::config::baby_bear_poseidon2::BabyBearPoseidon2Config as SC;
+use types::{VerificationBaseline, VerificationBaselineJson, VersionedVmStarkProof};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(start)]
@@ -30,12 +35,17 @@ pub fn verify_stark(
         .try_into()
         .map_err(|e| JsValue::from_str(&format!("Failed to decode versioned proof: {}", e)))?;
 
-    let agg_vk: MultiStarkVerifyingKey<openvm_sdk::SC> = bitcode::deserialize(agg_vk_bytes)
-        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize aggregation verification key: {}", e)))?;
+    let agg_vk: MultiStarkVerifyingKey<SC> = bitcode::deserialize(agg_vk_bytes).map_err(|e| {
+        JsValue::from_str(&format!(
+            "Failed to deserialize aggregation verification key: {}",
+            e
+        ))
+    })?;
     let baseline_json: VerificationBaselineJson = serde_json::from_str(baseline_json)
         .map_err(|e| JsValue::from_str(&format!("Failed to deserialize verification baseline: {}", e)))?;
+    let baseline: VerificationBaseline = baseline_json.into();
 
-    match Sdk::verify_proof(agg_vk, baseline_json.into(), &proof) {
+    match verifier::verify_vm_stark_proof_decoded(&agg_vk, &baseline, &proof) {
         Ok(()) => Ok(true),
         Err(e) => {
             log(&format!("OpenVM verification failed: {}", e));
@@ -49,3 +59,5 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
 }
+
+use types::VmStarkProof;

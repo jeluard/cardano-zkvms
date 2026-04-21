@@ -218,12 +218,12 @@ aiken-build: ## Build the Aiken compiler WASM module
 		wasm-pack build --target web --out-dir ../../dist/aiken
 	@echo ""
 
-openvm-verifier-build: ## OpenVM 2.0 beta verifier runs natively on the backend
+openvm-verifier-build: ## Build the OpenVM verifier WASM module for browser-local proof verification
 	@echo "──────────────────────────────────────────────"
-	@echo " OpenVM STARK verifier WASM build skipped"
+	@echo " Building OpenVM STARK verifier WASM module"
 	@echo "──────────────────────────────────────────────"
-	@echo " OpenVM 2.0 beta does not currently support a browser-buildable verifier."
-	@echo " Step 4 verification uses the backend's native OpenVM verifier instead."
+	rm -rf $(WEB_DIR)/dist/openvm-verifier
+	cd crates/zkvms/openvm/verify && wasm-pack build --target web --out-dir ../../../../web/dist/openvm-verifier
 	@echo ""
 
 npm-install: ## Install npm dependencies for web
@@ -250,20 +250,20 @@ web-serve: ## Serve the web verifier from dist/ on http://localhost:8080 (static
 	@echo "──────────────────────────────────────────────"
 	cd $(WEB_DIR)/dist && python3 -m http.server 8080
 
-web-with-backend: build uplc-build aiken-build ## Provision OpenVM artifacts, build browser WASM + bundle + backend, then serve with proof generation and native verification
+web-with-backend: build uplc-build aiken-build openvm-verifier-build ## Provision OpenVM artifacts, build browser WASM + bundle + backend, then serve with proof generation and browser-side verification
 	@echo "──────────────────────────────────────────────"
 	@echo " Building with local backend (http://localhost:8080)"
 	@echo "──────────────────────────────────────────────"
 	BACKEND_URL=http://localhost:8080 make esbuild
 	@echo "──────────────────────────────────────────────"
-	@echo " Building Rust backend with native STARK verification"
+	@echo " Building Rust backend with proof generation"
 	@echo "──────────────────────────────────────────────"
 	cd $(WEB_DIR)/crates/backend && cargo build --release
 	@echo "──────────────────────────────────────────────"
 	@echo " Backend API:  http://localhost:8080"
 	@echo " Web UI:       http://localhost:3000"
 	@echo " Proof generation:   /api/prove"
-	@echo " Proof verification: /api/verify"
+	@echo " Proof verification: browser WASM"
 	@echo "──────────────────────────────────────────────"
 	@cd $(WEB_DIR)/crates/backend && OPENVM_GUEST_DIR="$(GUEST_DIR)" \
 		cargo run --release & \
@@ -272,7 +272,7 @@ web-with-backend: build uplc-build aiken-build ## Provision OpenVM artifacts, bu
 	cd $(WEB_DIR)/dist && python3 -m http.server 3000; \
 	kill $$BACKEND_PID 2>/dev/null
 
-web: uplc-build aiken-build ## Build browser WASM + esbuild bundle and serve (no backend)
+web: uplc-build aiken-build openvm-verifier-build ## Build browser WASM + esbuild bundle and serve (no backend)
 	@echo "──────────────────────────────────────────────"
 	@echo " Building with no backend (local only)"
 	@echo "──────────────────────────────────────────────"
