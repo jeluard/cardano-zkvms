@@ -1,2 +1,14 @@
 [target.wasm32-unknown-unknown]
 rustflags = ["--cfg", 'getrandom_backend="wasm_js"']
+
+[target.xtensa-esp32s3-none-elf]
+rustflags = [
+	"-C",
+	"link-arg=-Tlinkall.x",
+	"-C",
+	"link-arg=-nostartfiles",
+]
+
+[target.xtensa-esp32s3-espidf]
+linker = "ldproxy"
+rustflags = ["--cfg", "espidf_time64"]

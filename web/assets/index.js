@@ -6,9 +6,13 @@ let aggStarkVkBytes = null;
 let starkProofJson = null;
 let starkVerificationBaselineJson = null;
 let starkProofVersion = null;
+let mcuHalo2Artifacts = null;
+const mcuHalo2ArtifactCache = new Map();
+let lastProofDetails = null;
 let lastEvalResult = null;
 let lastUserPublicValues = null;
 let backendAvailable = false;
+let selectedMcuDevice = null;
 let activeTab = 'aiken';
 let aikenCompiled = false;
 let compiledHex = null;  // Hex from successful Aiken compilation
@@ -17,8 +21,30 @@ let proveAbort = null;   // AbortController for in-flight prove request
 let proveGeneration = 0; // bumped each run to detect stale callbacks
 let busy = false;        // true while an async action is running
 
-// Step completion state (indices 0-3 for steps 1-4)
-const stepDone = [false, false, false, false];
+// Step completion state (indices 0-4 for steps 1-5)
+const stepDone = [false, false, false, false, false];
+
+const MCU_BLE_DEFAULTS = {
+  service_uuid: '7b7c0001-78f1-4f9a-8b29-6f1f1d95a100',
+  control_uuid: '7b7c0002-78f1-4f9a-8b29-6f1f1d95a100',
+  data_uuid: '7b7c0003-78f1-4f9a-8b29-6f1f1d95a100',
+  status_uuid: '7b7c0004-78f1-4f9a-8b29-6f1f1d95a100',
+  chunk_bytes: 180,
+};
+
+const MCU_DEVICE_STORAGE_KEY = 'openvm.mcu.bluetoothDevice';
+const MCU_ARTIFACT_STORAGE_KEY = 'openvm.mcu.halo2Artifacts.v2';
+const MCU_DEVICE_NAMES = new Set(['ZKMCU', 'OpenVM MCU', 'NimBLE', 'nimble']);
+const MCU_ARTIFACT_CACHE_LIMIT = 2;
+const MCU_ARTIFACT_CACHE_VERSION = 2;
+const MCU_TIMING_PHASES = [
+  ['proof', 'Proof'],
+  ['connect', 'Connect'],
+  ['upload', 'Upload'],
+  ['verify', 'Verify'],
+];
+
+restoreMcuHalo2ArtifactCache();
 
 // ——— Client-side proof processing ———
 import { normalizePublicValuesHex } from './proof-utils.js';
@@ -155,16 +181,22 @@ function updateSteps() {
   setCardState('card4', stepDone[2] && starkVerifierReady, stepDone[3]);
   document.getElementById('starkBtn').disabled = busy || !s4ready;
 
+  const hasBluetooth = 'bluetooth' in navigator;
+  const mcuBleReady = s1ok && backendAvailable && uplcWasm && hasBluetooth;
+  setCardState('card5', hasBluetooth, stepDone[4]);
+  document.getElementById('mcuBleBtn').disabled = busy || !mcuBleReady;
+  updateMcuForgetButton();
+
   // Compile button (step 0)
   document.getElementById('compileBtn').disabled = busy || !aikenWasm;
 
   // Pipeline indicators
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 5; i++) {
     const el = document.getElementById(`pipeStep${i}`);
     el.classList.remove('active', 'done', 'fail');
     if (stepDone[i - 1]) el.classList.add('done');
   }
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 4; i++) {
     const el = document.getElementById(`pipeConn${i}`);
     el.classList.remove('done', 'fail');
     if (stepDone[i - 1]) el.classList.add('done');
@@ -188,7 +220,7 @@ function setCardFail(id) {
 }
 
 function resetFrom(step) {
-  for (let i = step; i < 4; i++) stepDone[i] = false;
+  for (let i = step; i < 5; i++) stepDone[i] = false;
   if (step <= 1) {
     // Cancel any in-flight prove request
     if (proveAbort) { proveAbort.abort(); proveAbort = null; }
@@ -199,6 +231,8 @@ function resetFrom(step) {
     starkProofJson = null;
     starkVerificationBaselineJson = null;
     starkProofVersion = null;
+    mcuHalo2Artifacts = null;
+    lastProofDetails = null;
     aikenCompiled = false;
     compiledHex = null;
     document.getElementById('toggleUplcPreview').disabled = true;
@@ -211,10 +245,15 @@ function resetFrom(step) {
     hideResult('proveResult');
     document.getElementById('downloadRow').style.display = 'none';
     document.getElementById('proofInfo').textContent = '';
+    renderProofDetails();
     document.getElementById('evalProveBtnText').innerHTML = getEvalButtonText();
   }
   if (step <= 2) hideResult('commitResult');
   if (step <= 3) hideResult('starkResult');
+  if (step <= 4) {
+    hideResult('mcuBleResult');
+    document.getElementById('mcuProofInfo').textContent = '';
+  }
   document.getElementById('verdict').className = 'verdict';
   updateSteps();
 }
@@ -466,11 +505,14 @@ async function runEvaluateAndProve() {
     lastUserPublicValues = normalizePublicValuesHex(data.commitment);
 
     const proofJsonSize = fmtBytes(new TextEncoder().encode(JSON.stringify(starkProofJson)).length);
+    const baselineJsonSize = fmtBytes(new TextEncoder().encode(JSON.stringify(starkVerificationBaselineJson)).length);
+    lastProofDetails = await buildProofDetails(data, proofJsonSize, baselineJsonSize);
+    renderProofDetails();
     const verificationStatus = openVmVerifierWasm && aggStarkVkBytes
       ? 'browser WASM ready'
       : 'browser WASM unavailable';
     document.getElementById('proofInfo').textContent =
-      `Proof JSON: ${proofJsonSize}. Baseline: ready. Verification: ${verificationStatus}.`;
+      `Proof JSON: ${proofJsonSize}. Baseline: ${baselineJsonSize}. Verification: ${verificationStatus}.`;
 
     showResult('proveResult', 'success',
       `<div class="result-label">Proof Generated</div>` +
@@ -634,6 +676,11 @@ async function runStarkVerification() {
 
     if (verified) {
       stepDone[3] = true;
+      if (lastProofDetails) {
+        lastProofDetails.verifier = 'accepted';
+        lastProofDetails.verifiedIn = `${dt.toFixed(1)}s`;
+        renderProofDetails();
+      }
       updateSteps();
 
       let pvHtml = '';
@@ -651,6 +698,11 @@ async function runStarkVerification() {
         pvHtml
       );
     } else {
+      if (lastProofDetails) {
+        lastProofDetails.verifier = 'rejected';
+        lastProofDetails.verifiedIn = `${dt.toFixed(1)}s`;
+        renderProofDetails();
+      }
       setPipeFail(4);
       setCardFail('card4');
       showResult('starkResult', 'error',
@@ -660,6 +712,10 @@ async function runStarkVerification() {
       );
     }
   } catch (e) {
+    if (lastProofDetails) {
+      lastProofDetails.verifier = 'error';
+      renderProofDetails();
+    }
     setPipeFail(4);
     setCardFail('card4');
     showResult('starkResult', 'error',
@@ -671,6 +727,844 @@ async function runStarkVerification() {
   busy = false;
   updateSteps();
 };
+
+// ——— Step 5: ZKMCU BLE Verification ———
+
+async function runMcuBleVerification() {
+  const hex = getCurrentHex();
+  if (!hex) return showResult('mcuBleResult', 'error', 'Compile Aiken or provide UPLC hex first.');
+  if (!backendAvailable) return showResult('mcuBleResult', 'error', 'Backend unavailable. MCU proof generation needs the server.');
+  if (!('bluetooth' in navigator)) return showResult('mcuBleResult', 'error', webBluetoothUnavailableMessage());
+
+  resetFrom(4);
+  busy = true;
+  updateSteps();
+  setPipeActive(5);
+
+  try {
+    const timing = emptyMcuTiming();
+    const cachedArtifacts = getCachedMcuHalo2Artifacts(hex);
+
+    if (!cachedArtifacts) {
+      const proofStartedAt = performance.now();
+      const { data } = await getMcuHalo2Artifacts(hex);
+      timing.proof = performance.now() - proofStartedAt;
+      data._mcuTiming = { proof: timing.proof };
+      storeMcuHalo2Artifacts(hex, data);
+      populateMcuPvEditor(data.public_values_hex || '');
+      const verifierKeyBytes = base64ToBytes(data.verifier_key_b64);
+      const proofEnvelopeBytes = base64ToBytes(data.proof_envelope_b64);
+      const totalBytes = verifierKeyBytes.length + proofEnvelopeBytes.length;
+
+      document.getElementById('mcuProofInfo').textContent =
+        `Proof ${shortHex(data.proof_sha256)} · ${fmtBytes(totalBytes)} BLE payload · ${data.public_values_len || 0} public bytes · cached`;
+      showResult('mcuBleResult', 'success',
+        `<div class="result-label">MCU Proof Cached</div>` +
+        `<div class="result-value">OpenVM Halo2/KZG artifacts are ready. Click Send Cached Proof to choose a ZKMCU device and transfer immediately.</div>` +
+        renderMcuTimingBar(timing, 'proof')
+      );
+      busy = false;
+      document.getElementById('mcuBleBtnText').innerHTML = 'Send Cached Proof';
+      updateSteps();
+      return;
+    }
+
+    const data = cachedArtifacts;
+    Object.assign(timing, data._mcuTiming || {});
+    const verifierKeyBytes = base64ToBytes(data.verifier_key_b64);
+    // Read public values from the editor (may have been modified by user)
+    const pvEdited = getMcuPvEdited();
+    let proofEnvelopeBytes = base64ToBytes(data.proof_envelope_b64);
+    let pvTampered = false;
+    if (pvEdited !== null && pvEdited !== (data.public_values_hex || '')) {
+      const patchResp = await fetch(config.apiUrl('/api/patch-envelope'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proof_envelope_b64: data.proof_envelope_b64, public_values_hex: pvEdited }),
+      });
+      const patchData = await patchResp.json();
+      if (!patchData.success) throw new Error(`patch-envelope: ${patchData.error}`);
+      proofEnvelopeBytes = base64ToBytes(patchData.proof_envelope_b64);
+      pvTampered = true;
+    }
+    const ble = { ...MCU_BLE_DEFAULTS, ...(data.ble || {}) };
+    const totalBytes = verifierKeyBytes.length + proofEnvelopeBytes.length;
+
+    document.getElementById('mcuProofInfo').textContent =
+      `Proof ${shortHex(data.proof_sha256)} · ${fmtBytes(totalBytes)} BLE payload · ${data.public_values_len || 0} public bytes · cached` +
+      (pvTampered ? ' · ⚠ MODIFIED PUBLIC VALUES' : '');
+
+    document.getElementById('mcuBleBtnText').innerHTML = '<span class="spinner"></span> Finding MCU…';
+    showResult('mcuBleResult', 'info',
+      `<div class="result-label">Connect ZKMCU</div>` +
+      `<div class="result-value">Looking for a previously granted MCU device. The Bluetooth picker opens only if this browser has no saved grant.</div>` +
+      renderMcuTimingBar(timing, 'connect')
+    );
+
+    const device = await getMcuDeviceForTransfer(timing);
+    rememberMcuDevice(device);
+
+    showResult('mcuBleResult', 'info',
+      `<div class="result-label">ZKMCU Selected</div>` +
+      `<div class="result-value">Reusing cached MCU proof artifacts. Connecting to the selected device.</div>` +
+      renderMcuTimingBar(timing, 'connect')
+    );
+    document.getElementById('mcuBleBtnText').innerHTML = '<span class="spinner"></span> Waiting for BLE…';
+
+    const connectStartedAt = performance.now();
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(ble.service_uuid);
+    const controlChar = await service.getCharacteristic(ble.control_uuid);
+    const dataChar = await service.getCharacteristic(ble.data_uuid);
+    const statusChar = await service.getCharacteristic(ble.status_uuid);
+
+    const statusUpdates = [];
+    let browserSentBytes = 0;
+    let latestStatusMessage = '';
+    let latestReceiveProgress = null;
+    const renderTransferProgress = () => renderMcuReceiveProgress({
+      totalBytes,
+      sentBytes: browserSentBytes,
+      receiveProgress: latestReceiveProgress,
+    });
+    const handleStatusMessage = message => {
+      if (!message) return '';
+      latestStatusMessage = message;
+      const receiveProgress = parseMcuReceiveProgress(message);
+      if (receiveProgress) {
+        latestReceiveProgress = receiveProgress;
+      }
+      if (statusUpdates[statusUpdates.length - 1] !== message) {
+        statusUpdates.push(message);
+      }
+      // Step progress messages (e.g. "verifying 4 commitments") are handled by
+      // the rAF animation loop; don't overwrite the whole result box.
+      const stepInfo = parseMcuVerifyStep(message);
+      if (stepInfo) {
+        currentVerifyStep = stepInfo;
+        return message;
+      }
+      showResult('mcuBleResult', statusType(message),
+        `<div class="result-label">ZKMCU</div>` +
+        `<div class="result-value">${escapeHtml(message)}</div>` +
+        renderTransferProgress() +
+        `<div class="timing">${fmtBytes(totalBytes)} total BLE payload</div>` +
+        renderMcuTimingBar(timing, message.includes('verifying') ? 'verify' : 'upload')
+      );
+      return message;
+    };
+    const onStatus = event => {
+      handleStatusMessage(decodeBleText(event.target.value));
+    };
+    await statusChar.startNotifications();
+    statusChar.addEventListener('characteristicvaluechanged', onStatus);
+    timing.connect = performance.now() - connectStartedAt;
+
+    document.getElementById('mcuBleBtnText').innerHTML = '<span class="spinner"></span> Sending artifacts…';
+    showResult('mcuBleResult', 'info',
+      `<div class="result-label">ZKMCU Upload</div>` +
+      `<div class="result-value">Sending ${fmtBytes(totalBytes)} of verifier key and proof envelope.</div>` +
+      renderTransferProgress() +
+      renderMcuTimingBar(timing, 'upload')
+    );
+    const uploadStartedAt = performance.now();
+    const updateBrowserUploadProgress = delta => {
+      browserSentBytes += delta;
+      const message = latestStatusMessage.startsWith('receiving') || latestStatusMessage.startsWith('received')
+        ? latestStatusMessage
+        : `Sending ${fmtBytes(totalBytes)} of verifier key and proof envelope.`;
+      showResult('mcuBleResult', 'info',
+        `<div class="result-label">ZKMCU Upload</div>` +
+        `<div class="result-value">${escapeHtml(message)}</div>` +
+        renderTransferProgress() +
+        `<div class="timing">${fmtBytes(browserSentBytes)} queued to BLE so far</div>` +
+        renderMcuTimingBar(timing, 'upload')
+      );
+    };
+    await writeUtf8(
+      controlChar,
+      `START ${verifierKeyBytes.length} ${proofEnvelopeBytes.length} ${data.proof_sha256 || ''}`,
+      { requireResponse: true }
+    );
+    const startStatus = await waitForMcuStatus(
+      statusChar,
+      statusUpdates,
+      message => message.startsWith('receiving') || message.startsWith('error'),
+      handleStatusMessage,
+      'Timed out waiting for ZKMCU to enter receiving state',
+      50
+    );
+    if (startStatus.startsWith('error')) {
+      throw new Error(startStatus || 'ZKMCU failed to start receiving proof artifacts');
+    }
+    // Send key then proof consecutively. The MCU only notifies once when the *full*
+    // transfer is complete ("received"), so there is no intermediate per-key progress
+    // signal to wait for. Write-with-response provides per-packet flow control.
+    await sendBleBlob(dataChar, 1, verifierKeyBytes, ble.chunk_bytes, {
+      requireResponse: true,
+      onProgress: updateBrowserUploadProgress,
+    });
+    await sendBleBlob(dataChar, 2, proofEnvelopeBytes, ble.chunk_bytes, {
+      requireResponse: true,
+      onProgress: updateBrowserUploadProgress,
+    });
+    const uploadStatus = await waitForMcuStatus(
+      statusChar,
+      statusUpdates,
+      message => message.startsWith('received') || message.startsWith('error'),
+      handleStatusMessage,
+      'Timed out waiting for ZKMCU to finish receiving proof artifacts',
+      250
+    );
+    timing.upload = performance.now() - uploadStartedAt;
+    if (!uploadStatus.startsWith('received')) {
+      throw new Error(uploadStatus || 'ZKMCU upload failed before verification started');
+    }
+
+    document.getElementById('mcuBleBtnText').innerHTML = '<span class="spinner"></span> Verifying on MCU…';
+    showResult('mcuBleResult', 'info',
+      `<div class="result-label">ZKMCU Verify</div>` +
+      `<div class="result-value">MCU received all proof artifacts. Starting native Halo2/KZG verification.</div>` +
+      renderTransferProgress() +
+      renderMcuTimingBar(timing, 'verify')
+    );
+    const verifyStartedAt = performance.now();
+    // Estimated duration from prior run; fall back to 65 s
+    const verifyEstimateMs = timing.verify || 65000;
+    let verifyAnimCancelled = false;
+    let currentVerifyStep = null; // { step, label } from MCU progress notifications
+    const animateVerifyProgress = () => {
+      if (verifyAnimCancelled) return;
+      const elapsedMs = performance.now() - verifyStartedAt;
+      showResult('mcuBleResult', 'info',
+        `<div class="result-label">ZKMCU Verify</div>` +
+        `<div class="result-value">Verifying on MCU (Halo2/KZG)\u2026</div>` +
+        renderMcuVerifySteps(currentVerifyStep) +
+        renderMcuVerifyProgress(elapsedMs, verifyEstimateMs) +
+        renderMcuTimingBar(timing, 'verify')
+      );
+      requestAnimationFrame(animateVerifyProgress);
+    };
+    requestAnimationFrame(animateVerifyProgress);
+    await writeUtf8(controlChar, 'COMMIT', { requireResponse: true });
+    const verdict = await waitForMcuVerdict(statusChar, statusUpdates, handleStatusMessage);
+    verifyAnimCancelled = true;
+    timing.verify = performance.now() - verifyStartedAt;
+    // Persist updated verify timing into the artifact cache so future runs have a better estimate
+    if (data._mcuTiming) {
+      data._mcuTiming.verify = timing.verify;
+      storeMcuHalo2Artifacts(hex, data);
+    }
+
+    if (verdict.startsWith('verified')) {
+      stepDone[4] = true;
+      updateSteps();
+      showResult('mcuBleResult', 'success',
+        `<div class="result-label">MCU Verified</div>` +
+        `<div class="result-value">${escapeHtml(verdict)}</div>` +
+        renderTransferProgress() +
+        `<div class="timing">Proof ${escapeHtml(shortHex(data.proof_sha256))} accepted by the ZKMCU Halo2/KZG verifier.</div>` +
+        renderMcuTimingBar(timing)
+      );
+    } else {
+      setPipeFail(5);
+      setCardFail('card5');
+      showResult('mcuBleResult', 'error',
+        `<div class="result-label">MCU Rejected</div>` +
+        `<div class="result-value">${escapeHtml(verdict)}</div>` +
+        renderTransferProgress() +
+        renderMcuTimingBar(timing)
+      );
+    }
+  } catch (error) {
+    setPipeFail(5);
+    setCardFail('card5');
+    showResult('mcuBleResult', 'error',
+      `<div class="result-label">MCU BLE Error</div>` +
+      `<div class="result-value">${escapeHtml(formatMcuBleError(error))}</div>`
+    );
+  }
+
+  busy = false;
+  document.getElementById('mcuBleBtnText').innerHTML = 'Generate MCU Proof &amp; Send';
+  updateSteps();
+}
+
+function emptyMcuTiming() {
+  return { proof: 0, connect: 0, upload: 0, verify: 0 };
+}
+
+function webBluetoothUnavailableMessage() {
+  return 'Web Bluetooth is not available here. Open http://localhost:3000 in external Chrome or Edge; VS Code\'s internal browser cannot complete BLE pairing.';
+}
+
+function isInternalBrowser() {
+  const userAgent = navigator.userAgent || '';
+  return /Electron|VSCode|Code - Insiders/i.test(userAgent) || window.location.protocol === 'vscode-webview:';
+}
+
+function formatMcuBleError(error) {
+  const message = String(error);
+  if (isInternalBrowser()) {
+    return `${message}. Open http://localhost:3000 in external Chrome or Edge; the VS Code internal browser cannot complete the native Bluetooth device selection.`;
+  }
+  if (message.includes('NotFoundError')) {
+    return `${message}. No device was selected. Choose the Tufty advertising as ZKMCU in the browser Bluetooth picker.`;
+  }
+  return message;
+}
+
+function formatMs(ms) {
+  if (!ms) return '-';
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  return `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`;
+}
+
+function renderMcuTimingBar(timing, activePhase = '') {
+  const total = MCU_TIMING_PHASES.reduce((sum, [key]) => sum + Math.max(0, timing[key] || 0), 0);
+  const segments = MCU_TIMING_PHASES.map(([key, label]) => {
+    const ms = Math.max(0, timing[key] || 0);
+    const active = key === activePhase ? ' active' : '';
+    const pending = !ms && key !== activePhase ? ' pending' : '';
+    const MIN_VISIBLE = 4; // % below which a measured segment is flagged as not-to-scale
+    let width;
+    let notToScale = false;
+    if (total > 0 && ms > 0) {
+      const proportional = (ms / total) * 100;
+      if (proportional < MIN_VISIBLE) {
+        width = MIN_VISIBLE;
+        notToScale = true;
+      } else {
+        width = proportional;
+      }
+    } else if (key === activePhase) {
+      width = 4;
+    } else {
+      width = 0.5;
+    }
+    const nts = notToScale ? ' not-to-scale' : '';
+    const title = notToScale ? ` title="${label}: ${formatMs(ms)} (not to scale)"` : '';
+    return `<div class="mcu-timing-segment phase-${key}${active}${pending}${nts}"${title} style="flex-basis:${width.toFixed(2)}%">` +
+      `<span>${label}</span><strong>${ms ? formatMs(ms) : ''}</strong>` +
+      `</div>`;
+  }).join('');
+  const totalText = total ? `Total ${formatMs(total)}` : 'Timing starts when proof artifacts are prepared';
+
+  return `<div class="mcu-timing" aria-label="MCU timing breakdown">` +
+    `<div class="mcu-timing-bar">${segments}</div>` +
+    `<div class="mcu-timing-total">${totalText}</div>` +
+    `</div>`;
+}
+
+async function getMcuHalo2Artifacts(hex) {
+  const key = mcuArtifactCacheKey(hex);
+  const cached = mcuHalo2ArtifactCache.get(key);
+  if (cached) {
+    touchMcuHalo2ArtifactCache(key, cached);
+    document.getElementById('mcuBleBtnText').innerHTML = '<span class="spinner"></span> Reusing proof…';
+    showResult('mcuBleResult', 'info',
+      `<div class="result-label">MCU Proof</div>` +
+      `<div class="result-value">Reusing cached OpenVM Halo2/KZG artifacts for this unchanged UPLC program.</div>`
+    );
+    return { data: cached, cached: true };
+  }
+
+  document.getElementById('mcuBleBtnText').innerHTML = '<span class="spinner"></span> Preparing MCU proof…';
+  showResult('mcuBleResult', 'info',
+    `<div class="result-label">MCU Proof</div>` +
+    `<div class="result-value">Generating OpenVM Halo2/KZG artifacts for ZKMCU. This can take a while.</div>`
+  );
+
+  const proofResponse = await fetch(config.apiUrl('/api/prove/mcu-halo2'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ program_hex: hex }),
+  });
+  const data = await proofResponse.json();
+  if (!data.success) throw new Error(data.error || 'MCU proof generation failed');
+
+  touchMcuHalo2ArtifactCache(key, data);
+  return { data, cached: false };
+}
+
+function getCachedMcuHalo2Artifacts(hex) {
+  const key = mcuArtifactCacheKey(hex);
+  const cached = mcuHalo2ArtifactCache.get(key);
+  if (!cached) return null;
+  touchMcuHalo2ArtifactCache(key, cached);
+  return cached;
+}
+
+function storeMcuHalo2Artifacts(hex, data) {
+  touchMcuHalo2ArtifactCache(mcuArtifactCacheKey(hex), data);
+}
+
+function touchMcuHalo2ArtifactCache(key, data) {
+  mcuHalo2ArtifactCache.delete(key);
+  mcuHalo2ArtifactCache.set(key, data);
+  while (mcuHalo2ArtifactCache.size > MCU_ARTIFACT_CACHE_LIMIT) {
+    mcuHalo2ArtifactCache.delete(mcuHalo2ArtifactCache.keys().next().value);
+  }
+  mcuHalo2Artifacts = data;
+  persistMcuHalo2ArtifactCache();
+}
+
+function restoreMcuHalo2ArtifactCache() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(MCU_ARTIFACT_STORAGE_KEY) || 'null');
+    if (stored?.version !== MCU_ARTIFACT_CACHE_VERSION || !Array.isArray(stored.entries)) return;
+    for (const entry of stored.entries) {
+      if (typeof entry?.key === 'string' && entry.data && typeof entry.data === 'object') {
+        mcuHalo2ArtifactCache.set(entry.key, entry.data);
+      }
+    }
+    while (mcuHalo2ArtifactCache.size > MCU_ARTIFACT_CACHE_LIMIT) {
+      mcuHalo2ArtifactCache.delete(mcuHalo2ArtifactCache.keys().next().value);
+    }
+  } catch (_) {
+    localStorage.removeItem(MCU_ARTIFACT_STORAGE_KEY);
+  }
+}
+
+function persistMcuHalo2ArtifactCache() {
+  try {
+    localStorage.setItem(MCU_ARTIFACT_STORAGE_KEY, JSON.stringify({
+      version: MCU_ARTIFACT_CACHE_VERSION,
+      entries: [...mcuHalo2ArtifactCache.entries()].map(([key, data]) => ({ key, data })),
+    }));
+  } catch (_) {}
+}
+
+function mcuArtifactCacheKey(hex) {
+  const normalizedHex = hex.trim().toLowerCase();
+  return `${config.backendUrl}|${normalizedHex}`;
+}
+
+function rememberMcuDevice(device) {
+  selectedMcuDevice = device;
+  try {
+    localStorage.setItem(MCU_DEVICE_STORAGE_KEY, JSON.stringify({
+      id: device.id || '',
+      name: device.name || 'MCU',
+    }));
+  } catch (_) {}
+  updateMcuForgetButton();
+}
+
+async function getMcuDeviceForTransfer(timing) {
+  const device = await findReusableMcuDevice();
+  if (device) return device;
+
+  document.getElementById('mcuBleBtnText').innerHTML = '<span class="spinner"></span> Choose MCU…';
+  showResult('mcuBleResult', 'info',
+    `<div class="result-label">Choose ZKMCU</div>` +
+    `<div class="result-value">Select ZKMCU, OpenVM MCU, or NimBLE once. Chrome can reuse the grant on future page loads.</div>` +
+    renderMcuTimingBar(timing, 'connect')
+  );
+
+  return navigator.bluetooth.requestDevice({
+    filters: [
+      { name: 'ZKMCU' },
+      { namePrefix: 'ZK' },
+      { name: 'OpenVM MCU' },
+      { namePrefix: 'OpenVM' },
+      { name: 'nimble' },
+      { name: 'NimBLE' },
+      { services: [MCU_BLE_DEFAULTS.service_uuid] },
+    ],
+    optionalServices: [MCU_BLE_DEFAULTS.service_uuid],
+  });
+}
+
+async function findReusableMcuDevice() {
+  if (selectedMcuDevice) return selectedMcuDevice;
+  if (!navigator.bluetooth?.getDevices) return null;
+
+  const remembered = rememberedMcuDevice();
+  const grantedDevices = await navigator.bluetooth.getDevices();
+  return grantedDevices.find(device => remembered?.id && device.id === remembered.id)
+    || grantedDevices.find(isLikelyMcuDevice)
+    || null;
+}
+
+function rememberedMcuDevice() {
+  try {
+    return JSON.parse(localStorage.getItem(MCU_DEVICE_STORAGE_KEY) || 'null');
+  } catch (_) {
+    return null;
+  }
+}
+
+function isLikelyMcuDevice(device) {
+  const name = device?.name || '';
+  return MCU_DEVICE_NAMES.has(name) || name.startsWith('ZK') || name.startsWith('OpenVM');
+}
+
+function mcuDeviceLabel(device, fallback) {
+  return device?.name || fallback?.name || 'MCU';
+}
+
+function updateMcuForgetButton() {
+  const button = document.getElementById('mcuForgetBtn');
+  const label = document.getElementById('mcuForgetBtnText');
+  if (!button || !label) return;
+
+  const hasBluetooth = 'bluetooth' in navigator;
+  const remembered = rememberedMcuDevice();
+  const canLookUpDevices = !!navigator.bluetooth?.getDevices;
+  const hasTargetHint = !!selectedMcuDevice || !!remembered || canLookUpDevices;
+
+  button.disabled = busy || !hasBluetooth || !hasTargetHint;
+  label.textContent = selectedMcuDevice || remembered
+    ? `Forget ${mcuDeviceLabel(selectedMcuDevice, remembered)}`
+    : 'Forget MCU';
+}
+
+async function findRememberedMcuDevices() {
+  const remembered = rememberedMcuDevice();
+  const devices = [];
+  if (selectedMcuDevice) devices.push(selectedMcuDevice);
+
+  if (navigator.bluetooth?.getDevices) {
+    const grantedDevices = await navigator.bluetooth.getDevices();
+    for (const device of grantedDevices) {
+      const sameDevice = remembered?.id && device.id === remembered.id;
+      if (sameDevice || isLikelyMcuDevice(device)) devices.push(device);
+    }
+  }
+
+  return [...new Map(devices.map(device => [device.id || device.name, device])).values()];
+}
+
+async function forgetMcuAssociation() {
+  if (!('bluetooth' in navigator)) {
+    showResult('mcuBleResult', 'error', 'Web Bluetooth is not available in this browser.');
+    return;
+  }
+
+  busy = true;
+  updateSteps();
+  document.getElementById('mcuForgetBtnText').innerHTML = '<span class="spinner"></span> Forgetting…';
+
+  try {
+    const devices = await findRememberedMcuDevices();
+    const forgettable = devices.filter(device => typeof device.forget === 'function');
+
+    if (!devices.length) {
+      localStorage.removeItem(MCU_DEVICE_STORAGE_KEY);
+      selectedMcuDevice = null;
+      showResult('mcuBleResult', 'info',
+        `<div class="result-label">MCU Association</div>` +
+        `<div class="result-value">No MCU device is remembered by this page. If Chrome still shows an old name, remove it from browser Bluetooth settings.</div>`
+      );
+      return;
+    }
+
+    if (!forgettable.length) {
+      showResult('mcuBleResult', 'error',
+        `<div class="result-label">Forget Unsupported</div>` +
+        `<div class="result-value">This Chrome build exposes the device but not BluetoothDevice.forget(). Remove it from chrome://settings/content/bluetoothDevices.</div>`
+      );
+      return;
+    }
+
+    for (const device of forgettable) {
+      if (device.gatt?.connected) device.gatt.disconnect();
+      await device.forget();
+    }
+
+    localStorage.removeItem(MCU_DEVICE_STORAGE_KEY);
+    selectedMcuDevice = null;
+    showResult('mcuBleResult', 'success',
+      `<div class="result-label">MCU Association Removed</div>` +
+      `<div class="result-value">Forgot ${forgettable.length} MCU Bluetooth device${forgettable.length === 1 ? '' : 's'} for this site. Click Generate MCU Proof &amp; Send to choose it again.</div>`
+    );
+  } catch (error) {
+    showResult('mcuBleResult', 'error',
+      `<div class="result-label">Forget Failed</div>` +
+      `<div class="result-value">${escapeHtml(String(error))}</div>`
+    );
+  } finally {
+    busy = false;
+    updateSteps();
+  }
+}
+
+function base64ToBytes(value) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// Populate the public-values editor with the hex from freshly generated artifacts.
+// Stores original value so we can detect modifications.
+function populateMcuPvEditor(hex) {
+  const input = document.getElementById('mcuPvHex');
+  const resetBtn = document.getElementById('mcuPvReset');
+  if (!input) return;
+  input.value = hex;
+  input.dataset.original = hex;
+  input.removeAttribute('readonly');
+  if (resetBtn) resetBtn.style.display = 'none';
+}
+
+// Return the current hex value in the editor, or null if no editor / no value.
+function getMcuPvEdited() {
+  const input = document.getElementById('mcuPvHex');
+  if (!input || input.hasAttribute('readonly')) return null;
+  return input.value.trim().toLowerCase();
+}
+
+async function writeUtf8(characteristic, value, options) {
+  await writeBleValue(characteristic, new TextEncoder().encode(value), options);
+}
+
+async function writeBleValue(characteristic, value, options = {}) {
+  const { requireResponse = false, preferNoResponse = false } = options;
+
+  const canWriteWithResponse = !!characteristic.properties?.write;
+  const canWriteWithoutResponse = !!characteristic.properties?.writeWithoutResponse;
+
+  if (preferNoResponse && canWriteWithoutResponse && 'writeValueWithoutResponse' in characteristic) {
+    await characteristic.writeValueWithoutResponse(value);
+    return;
+  }
+
+  if (requireResponse && canWriteWithResponse) {
+    try {
+      if ('writeValueWithResponse' in characteristic) {
+        await characteristic.writeValueWithResponse(value);
+      } else {
+        await characteristic.writeValue(value);
+      }
+      return;
+    } catch (error) {
+      if (!(canWriteWithoutResponse && 'writeValueWithoutResponse' in characteristic && isBleWriteFallbackError(error))) {
+        throw error;
+      }
+      await characteristic.writeValueWithoutResponse(value);
+      return;
+    }
+  }
+
+  if (canWriteWithoutResponse && 'writeValueWithoutResponse' in characteristic) {
+    await characteristic.writeValueWithoutResponse(value);
+  } else if (canWriteWithResponse && 'writeValueWithResponse' in characteristic) {
+    await characteristic.writeValueWithResponse(value);
+  } else {
+    await characteristic.writeValue(value);
+  }
+}
+
+async function sendBleBlob(characteristic, kind, bytes, chunkBytes, options = {}) {
+  const { requireResponse = false, preferNoResponse = false, onProgress = null, yieldEveryPackets = 0 } = options;
+  const payloadBytes = Math.max(20, Math.min(chunkBytes || 180, 512) - 4);
+  let sequence = 0;
+  for (let offset = 0; offset < bytes.length; offset += payloadBytes) {
+    const slice = bytes.subarray(offset, Math.min(offset + payloadBytes, bytes.length));
+    const packet = new Uint8Array(4 + slice.length);
+    packet[0] = kind;
+    packet[1] = sequence & 0xff;
+    packet[2] = (sequence >> 8) & 0xff;
+    packet[3] = offset + slice.length >= bytes.length ? 1 : 0;
+    packet.set(slice, 4);
+    await writeBleValue(characteristic, packet, { requireResponse, preferNoResponse });
+    if (onProgress) onProgress(slice.length);
+    sequence++;
+    if (yieldEveryPackets > 0 && sequence % yieldEveryPackets === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+  }
+}
+
+async function sendBleBlobWithBackpressure(characteristic, kind, bytes, chunkBytes, options = {}) {
+  const {
+    totalBytes,
+    baseReceivedBytes = 0,
+    statusChar,
+    statusUpdates,
+    onStatusMessage,
+    onProgress = null,
+  } = options;
+  const payloadBytes = Math.max(20, Math.min(chunkBytes || 180, 512) - 4);
+  const windowBytes = Math.max(payloadBytes * 2, Math.ceil((totalBytes || bytes.length) * 0.05));
+  let sequence = 0;
+  let sentBytes = 0;
+
+  for (let offset = 0; offset < bytes.length; offset += payloadBytes) {
+    const slice = bytes.subarray(offset, Math.min(offset + payloadBytes, bytes.length));
+    const packet = new Uint8Array(4 + slice.length);
+    packet[0] = kind;
+    packet[1] = sequence & 0xff;
+    packet[2] = (sequence >> 8) & 0xff;
+    packet[3] = offset + slice.length >= bytes.length ? 1 : 0;
+    packet.set(slice, 4);
+    await writeBleValue(characteristic, packet, { requireResponse: true });
+    sentBytes += slice.length;
+    if (onProgress) onProgress(slice.length);
+    sequence++;
+
+    if (sentBytes > windowBytes) {
+      const targetReceivedBytes = baseReceivedBytes + sentBytes - windowBytes;
+      const receiveStatus = await waitForMcuStatus(
+        statusChar,
+        statusUpdates,
+        message => {
+          if (message.startsWith('error')) return true;
+          const receiveProgress = parseMcuReceiveProgress(message);
+          return !!receiveProgress && receiveProgress.receivedBytes >= targetReceivedBytes;
+        },
+        onStatusMessage,
+        'Timed out waiting for ZKMCU receive progress',
+        25
+      );
+      if (receiveStatus.startsWith('error')) {
+        throw new Error(receiveStatus || 'ZKMCU reported an upload error');
+      }
+    }
+  }
+}
+
+function isBleWriteFallbackError(error) {
+  const name = error?.name || '';
+  const message = String(error?.message || error || '');
+  return name === 'NotSupportedError'
+    || name === 'InvalidStateError'
+    || /GATT operation failed/i.test(message);
+}
+
+async function waitForMcuStatus(statusChar, statusUpdates, predicate, onMessage, timeoutMessage, pollMs = 1500) {
+  const deadline = Date.now() + 20 * 60 * 1000;
+  while (Date.now() < deadline) {
+    const latest = statusUpdates[statusUpdates.length - 1];
+    if (latest && predicate(latest)) return latest;
+    try {
+      const value = await statusChar.readValue();
+      const message = onMessage(decodeBleText(value));
+      if (message && predicate(message)) return message;
+    } catch (_) {
+      // Notifications may be the only supported status path on some browsers.
+    }
+    await new Promise(resolve => setTimeout(resolve, pollMs));
+  }
+  throw new Error(timeoutMessage);
+}
+
+async function waitForMcuVerdict(statusChar, statusUpdates, onMessage) {
+  return waitForMcuStatus(
+    statusChar,
+    statusUpdates,
+    message => message.startsWith('verified') || message.startsWith('rejected') || message.startsWith('error'),
+    onMessage,
+    'Timed out waiting for ZKMCU verification result'
+  );
+}
+
+function decodeBleText(value) {
+  return new TextDecoder()
+    .decode(new Uint8Array(value.buffer, value.byteOffset, value.byteLength))
+    .replace(/\0+$/, '');
+}
+
+function statusType(message) {
+  if (message.startsWith('verified')) return 'success';
+  if (message.startsWith('rejected') || message.startsWith('error')) return 'error';
+  return 'info';
+}
+
+function parseMcuReceiveProgress(message) {
+  const match = /\brx\s+(\d+)%\s+(\d+)\/(\d+)B\b/.exec(message);
+  if (!match) return null;
+  const percent = Number(match[1]);
+  const receivedBytes = Number(match[2]);
+  const totalBytes = Number(match[3]);
+  if (!Number.isFinite(percent) || !Number.isFinite(receivedBytes) || !Number.isFinite(totalBytes) || totalBytes <= 0) {
+    return null;
+  }
+  return {
+    percent: Math.max(0, Math.min(100, percent)),
+    receivedBytes: Math.max(0, receivedBytes),
+    totalBytes,
+  };
+}
+
+// Ordered list of verification steps emitted by the MCU firmware.
+// Each entry: [label, relative weight for progress bar estimation]
+const MCU_VERIFY_STEPS = [
+  ['transcript',   0.03],
+  ['lagrange',     0.05],
+  ['constraints',  0.10],
+  ['commitments',  0.42], // heaviest — MSMs
+  ['queries',      0.08],
+  ['shplonk',      0.14],
+  ['pairing',      0.18], // ≥1 KZG pairings
+];
+
+// Parse "verifying N label" messages from the MCU progress channel.
+function parseMcuVerifyStep(message) {
+  const match = /^verifying (\d+) ([a-z]+)$/.exec(message);
+  if (!match) return null;
+  const label = match[2];
+  const idx = MCU_VERIFY_STEPS.findIndex(([l]) => l === label);
+  if (idx === -1) return null;
+  return { stepNum: Number(match[1]), label, idx };
+}
+
+// Render a step breadcrumb row showing which steps are done / active / pending.
+function renderMcuVerifySteps(current) {
+  return `<div class="mcu-verify-steps">` +
+    MCU_VERIFY_STEPS.map(([label], idx) => {
+      const state = !current ? 'pending'
+        : idx < current.idx ? 'done'
+        : idx === current.idx ? 'active'
+        : 'pending';
+      return `<span class="mcu-verify-step ${state}">${label}</span>`;
+    }).join('') +
+    `</div>`;
+}
+
+// Render an estimated-time progress bar for the MCU Halo2/KZG verification phase.
+// elapsedMs: time since COMMIT was sent; estimatedMs: expected duration from prior run.
+function renderMcuVerifyProgress(elapsedMs, estimatedMs) {
+  const pct = Math.min(99, Math.round((elapsedMs / estimatedMs) * 100));
+  const elapsedSec = (elapsedMs / 1000).toFixed(0);
+  const remainSec = Math.max(0, Math.round((estimatedMs - elapsedMs) / 1000));
+  const remainLabel = elapsedMs < estimatedMs
+    ? `~${remainSec}s remaining`
+    : `${((elapsedMs - estimatedMs) / 1000).toFixed(0)}s over estimate`;
+  return `<div class="mcu-verify-progress" aria-label="MCU verify progress">` +
+    `<div class="mcu-verify-track">` +
+    `<div class="mcu-verify-fill" style="width:${pct}%"></div>` +
+    `</div>` +
+    `<div class="mcu-verify-labels">` +
+    `<span>${elapsedSec}s elapsed</span>` +
+    `<span>${pct}%</span>` +
+    `<span>${remainLabel}</span>` +
+    `</div>` +
+    `</div>`;
+}
+
+function renderMcuReceiveProgress({ totalBytes, sentBytes = 0, receiveProgress = null }) {
+  if (!totalBytes) return '';
+  const effectiveTotal = receiveProgress?.totalBytes || totalBytes;
+  const sentPercent = Math.max(0, Math.min(100, Math.round((sentBytes / totalBytes) * 100)));
+  const receivePercent = receiveProgress?.percent ?? 0;
+  const receivedBytes = receiveProgress?.receivedBytes ?? 0;
+
+  return `<div class="mcu-transfer-progress" aria-label="MCU transfer progress">` +
+    `<div class="mcu-transfer-row">` +
+      `<span>Browser sent ${fmtBytes(sentBytes)} / ${fmtBytes(totalBytes)}</span>` +
+      `<strong>${sentPercent}%</strong>` +
+    `</div>` +
+    `<div class="mcu-transfer-track browser"><div class="mcu-transfer-fill" style="width:${sentPercent}%"></div></div>` +
+    `<div class="mcu-transfer-row">` +
+      `<span>MCU received ${fmtBytes(receivedBytes)} / ${fmtBytes(effectiveTotal)}</span>` +
+      `<strong>${receivePercent}%</strong>` +
+    `</div>` +
+    `<div class="mcu-transfer-track mcu"><div class="mcu-transfer-fill" style="width:${receivePercent}%"></div></div>` +
+  `</div>`;
+}
 
 // ——— Pipeline helpers ———
 
@@ -762,6 +1656,68 @@ function fmtBytes(n) {
   return (n/1048576).toFixed(1) + ' MB';
 }
 
+async function buildProofDetails(data, proofJsonSize, baselineJsonSize) {
+  const proofJson = JSON.stringify(data.stark_proof_json);
+  const proofHash = await sha256Hex(proofJson);
+  const userPublicValues = normalizePublicValuesHex(
+    data.stark_proof_json?.user_public_values || data.commitment
+  );
+  const publicValueBytes = userPublicValues ? userPublicValues.length / 2 : 0;
+
+  return {
+    system: 'OpenVM STARK',
+    openvm: data.openvm_version || 'unknown',
+    version: data.proof_version || data.stark_proof_json?.version || 'unknown',
+    proofJsonSize,
+    baselineJsonSize,
+    proofHash,
+    publicValueBytes: `${publicValueBytes} bytes`,
+    verifier: 'pending',
+    verifiedIn: '-',
+  };
+}
+
+function renderProofDetails() {
+  const panel = document.getElementById('proofDetailPanel');
+  const grid = document.getElementById('proofDetailGrid');
+  if (!panel || !grid) return;
+
+  if (!lastProofDetails) {
+    panel.hidden = true;
+    grid.innerHTML = '';
+    return;
+  }
+
+  panel.hidden = false;
+  const rows = [
+    ['Proof system', lastProofDetails.system],
+    ['OpenVM', lastProofDetails.openvm],
+    ['Version', lastProofDetails.version],
+    ['Proof JSON', lastProofDetails.proofJsonSize],
+    ['Baseline', lastProofDetails.baselineJsonSize],
+    ['Public values', lastProofDetails.publicValueBytes],
+    ['Proof SHA-256', shortHex(lastProofDetails.proofHash)],
+    ['Verifier', lastProofDetails.verifier],
+    ['Time', lastProofDetails.verifiedIn],
+  ];
+
+  grid.innerHTML = rows.map(([label, value]) =>
+    `<div class="proof-detail-label">${escapeHtml(label)}</div>` +
+    `<div class="proof-detail-value">${escapeHtml(String(value))}</div>`
+  ).join('');
+}
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function shortHex(hex) {
+  if (!hex || hex.length <= 24) return hex || 'unknown';
+  return `${hex.slice(0, 12)}...${hex.slice(-12)}`;
+}
+
 // ——— Aiken editor highlighting ———
 
 function syncHighlight() {
@@ -821,7 +1777,27 @@ document.getElementById('compileBtn').addEventListener('click', compileAiken);
 document.getElementById('evalProveBtn').addEventListener('click', runEvaluateAndProve);
 document.getElementById('commitBtn').addEventListener('click', runCommitmentCheck);
 document.getElementById('starkBtn').addEventListener('click', runStarkVerification);
+document.getElementById('mcuBleBtn').addEventListener('click', runMcuBleVerification);
+document.getElementById('mcuForgetBtn').addEventListener('click', forgetMcuAssociation);
 document.getElementById('bannerCloseBtn')?.addEventListener('click', hideBackendBanner);
+
+// Public values editor: reset button + modified indicator
+document.getElementById('mcuPvReset')?.addEventListener('click', () => {
+  const input = document.getElementById('mcuPvHex');
+  if (input) {
+    input.value = input.dataset.original || '';
+    input.classList.remove('pv-modified');
+    document.getElementById('mcuPvReset').style.display = 'none';
+  }
+});
+document.getElementById('mcuPvHex')?.addEventListener('input', () => {
+  const input = document.getElementById('mcuPvHex');
+  const resetBtn = document.getElementById('mcuPvReset');
+  if (!input || !resetBtn) return;
+  const changed = input.value.trim().toLowerCase() !== (input.dataset.original || '').toLowerCase();
+  input.classList.toggle('pv-modified', changed);
+  resetBtn.style.display = changed ? '' : 'none';
+});
 
 loadUplcWasm();
 loadAikenWasm();

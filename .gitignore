@@ -1,6 +1,8 @@
 **/target/
 **/dist/
 **/node_modules/
+**/.embuild/
 web/crates/aiken-wasm/stdlib/
 .env
 conf/.env
+**/cyw43-firmware/*.bin

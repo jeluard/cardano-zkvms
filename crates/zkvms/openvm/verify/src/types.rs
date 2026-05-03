@@ -6,8 +6,8 @@ use openvm_stark_backend::{
     p3_field::{PrimeCharacteristicRing, PrimeField32},
     proof::Proof,
 };
-use openvm_stark_sdk::{
-    config::baby_bear_poseidon2::{BabyBearPoseidon2Config as SC, DIGEST_SIZE, F},
+use openvm_stark_sdk::config::baby_bear_poseidon2::{
+    BabyBearPoseidon2Config as SC, DIGEST_SIZE, F,
 };
 use serde::{de, Deserialize, Deserializer};
 use serde_with::serde_as;
@@ -22,7 +22,10 @@ const LEGACY_SUPPORTED_PROOF_VERSION: &str = "2.0";
 pub type Digest = [F; DIGEST_SIZE];
 
 fn is_supported_proof_version(version: &str) -> bool {
-    matches!(version, SUPPORTED_PROOF_VERSION | LEGACY_SUPPORTED_PROOF_VERSION)
+    matches!(
+        version,
+        SUPPORTED_PROOF_VERSION | LEGACY_SUPPORTED_PROOF_VERSION
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
@@ -157,7 +160,9 @@ impl From<VerificationBaselineJson> for VerificationBaseline {
             leaf_vk_commit: value.leaf_vk_commit.to_vk_commit(),
             internal_for_leaf_vk_commit: value.internal_for_leaf_vk_commit.to_vk_commit(),
             internal_recursive_vk_commit: value.internal_recursive_vk_commit.to_vk_commit(),
-            expected_def_hook_commit: value.expected_def_hook_commit.map(|commit| commit.to_digest()),
+            expected_def_hook_commit: value
+                .expected_def_hook_commit
+                .map(|commit| commit.to_digest()),
         }
     }
 }
@@ -197,18 +202,15 @@ impl TryFrom<VersionedVmStarkProof> for VmStarkProof {
                 std::io::ErrorKind::InvalidData,
                 format!(
                     "unsupported proof version `{}` (expected {} or {})",
-                    version,
-                    SUPPORTED_PROOF_VERSION,
-                    LEGACY_SUPPORTED_PROOF_VERSION,
+                    version, SUPPORTED_PROOF_VERSION, LEGACY_SUPPORTED_PROOF_VERSION,
                 ),
             ));
         }
 
         let inner = Proof::<SC>::decode(&mut Cursor::new(&proof))?;
-        let user_pvs_proof =
-            UserPublicValuesProof::<DIGEST_SIZE, F>::decode::<SC, _>(&mut Cursor::new(
-                &user_pvs_proof,
-            ))?;
+        let user_pvs_proof = UserPublicValuesProof::<DIGEST_SIZE, F>::decode::<SC, _>(
+            &mut Cursor::new(&user_pvs_proof),
+        )?;
 
         Ok(Self {
             inner,

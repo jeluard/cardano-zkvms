@@ -355,6 +355,101 @@ textarea {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.tamper-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  margin-left: 4px;
+}
+
+.tamper-label input[type="checkbox"] {
+  accent-color: #ff7f50;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.tamper-label:has(input:checked) {
+  color: #ff7f50;
+  font-weight: 600;
+}
+
+/* Public values editor */
+.pv-editor {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pv-editor-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pv-editor-hint {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.pv-editor-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pv-editor-input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.pv-editor-input:focus {
+  border-color: var(--accent);
+}
+
+.pv-editor-input.pv-modified {
+  border-color: #ff7f50;
+  background: rgba(255, 127, 80, 0.06);
+}
+
+.pv-editor-input[readonly] {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.btn-link:hover {
+  color: var(--accent);
 }
 
 .btn-download {
@@ -381,6 +476,34 @@ textarea {
   color: var(--text-secondary);
   margin-bottom: 16px;
   font-family: var(--font-mono);
+}
+
+.proof-detail-panel {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  padding: 14px;
+  background: var(--bg-dark-subtle);
+}
+
+.proof-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.36fr) minmax(0, 1fr);
+  gap: 8px 14px;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.proof-detail-label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.proof-detail-value {
+  color: var(--text-light);
+  min-width: 0;
+  word-break: break-word;
 }
 
 .result-box {
@@ -430,6 +553,202 @@ textarea {
 
 .result-value {
   word-break: break-all;
+}
+
+}
+
+.mcu-verify-progress {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mcu-verify-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-secondary, #eee);
+  overflow: hidden;
+  border: 1px solid var(--border, #ddd);
+}
+
+.mcu-verify-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent, #5a67f2), #7c8ef0);
+  transition: width 0.4s linear;
+  min-width: 4px;
+}
+
+.mcu-verify-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.mcu-verify-step {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.mcu-verify-step.done {
+  background: #e8f5e9;
+  border-color: #81c784;
+  color: #2e7d32;
+}
+
+.mcu-verify-step.active {
+  background: var(--accent, #5a67f2);
+  border-color: var(--accent, #5a67f2);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(90, 103, 242, 0.25);
+}
+
+.mcu-verify-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mcu-transfer-progress {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.mcu-transfer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.mcu-transfer-row strong {
+  color: var(--text-light);
+  font-size: 0.72rem;
+}
+
+.mcu-transfer-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-dark-subtle);
+}
+
+.mcu-transfer-track.browser .mcu-transfer-fill {
+  background: #ffcf66;
+}
+
+.mcu-transfer-track.mcu .mcu-transfer-fill {
+  background: #7ee2a8;
+}
+
+.mcu-transfer-fill {
+  height: 100%;
+  min-width: 0;
+  transition: width 0.15s linear;
+}
+
+.mcu-timing {
+  margin-top: 12px;
+}
+
+.mcu-timing-bar {
+  display: flex;
+  min-height: 36px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--color-black);
+}
+
+.mcu-timing-segment {
+  min-width: 0;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--color-black);
+}
+
+.mcu-timing-segment span,
+.mcu-timing-segment strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcu-timing-segment:last-child {
+  border-right: 0;
+}
+
+.mcu-timing-segment span {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.mcu-timing-segment strong {
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.mcu-timing-segment.pending {
+  color: var(--text-muted);
+  background: var(--bg-dark-subtle);
+}
+
+.mcu-timing-segment.active {
+  box-shadow: inset 0 0 0 2px var(--text-bright);
+}
+
+.mcu-timing-segment.not-to-scale {
+  outline: 2px dashed rgba(0, 0, 0, 0.45);
+  outline-offset: -2px;
+}
+
+.phase-proof { background: #72d6ff; }
+.phase-connect { background: #ffcf66; }
+.phase-upload { background: #7ee2a8; }
+.phase-verify { background: #d6a0ff; }
+
+.mcu-timing-total {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+@media (max-width: 560px) {
+  .mcu-timing-bar {
+    flex-direction: column;
+  }
+  .mcu-timing-segment {
+    min-width: 0;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .mcu-timing-segment:last-child {
+    border-bottom: 0;
+  }
 }
 
 .spinner {

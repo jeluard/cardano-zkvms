@@ -9,6 +9,12 @@ name = "openvm_prover"
 [features]
 default = []
 evm-prove = ["openvm-sdk/evm-prove"]
+evm-verify = ["evm-prove", "openvm-sdk/evm-verify"]
+
+[[bin]]
+name = "openvm-evm-artifacts"
+path = "src/bin/openvm-evm-artifacts.rs"
+required-features = ["evm-prove"]
 
 [dependencies]
 openvm-sdk = { workspace = true }
@@ -17,9 +23,11 @@ openvm-stark-sdk = { workspace = true }
 openvm-circuit = { workspace = true }
 openvm-continuations = { workspace = true }
 openvm-stark-backend = { workspace = true }
+snark-verifier-sdk = { workspace = true }
 
 eyre = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+bincode = { workspace = true }
 hex = { workspace = true, features = ["std"] }

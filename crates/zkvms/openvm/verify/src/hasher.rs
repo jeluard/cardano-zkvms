@@ -15,7 +15,10 @@ pub trait Hasher<const CHUNK: usize, F: Field> {
 
     fn merkle_root(&self, values: &[F]) -> [F; CHUNK] {
         assert_eq!(values.len() % CHUNK, 0, "leaf width mismatch");
-        assert!((values.len() / CHUNK).is_power_of_two(), "non-full Merkle tree");
+        assert!(
+            (values.len() / CHUNK).is_power_of_two(),
+            "non-full Merkle tree"
+        );
 
         let mut nodes: Vec<_> = values
             .chunks_exact(CHUNK)

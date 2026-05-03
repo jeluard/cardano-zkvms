@@ -8,18 +8,16 @@ use openvm_circuit::arch::instructions::exe::VmExe;
 use openvm_continuations::CommitBytes;
 use openvm_sdk::config::{AggregationSystemParams, AppConfig};
 use openvm_sdk::fs::{read_object_from_file, write_object_to_file};
-use openvm_sdk::keygen::{AggProvingKey, AppProvingKey};
-use openvm_sdk::types::{VerificationBaselineJson, VersionedVmStarkProof};
 #[cfg(feature = "evm-prove")]
 use openvm_sdk::keygen::Halo2ProvingKey;
+use openvm_sdk::keygen::{AggProvingKey, AppProvingKey};
 #[cfg(feature = "evm-prove")]
 use openvm_sdk::types::EvmProof;
+use openvm_sdk::types::{VerificationBaselineJson, VersionedVmStarkProof};
 use openvm_sdk::{Sdk, StdIn};
 use openvm_sdk_config::SdkVmConfig;
 use openvm_stark_backend::{keygen::types::MultiStarkVerifyingKey, SystemParams};
-use openvm_stark_sdk::config::{
-    app_params_with_100_bits_security, MAX_APP_LOG_STACKED_HEIGHT,
-};
+use openvm_stark_sdk::config::{app_params_with_100_bits_security, MAX_APP_LOG_STACKED_HEIGHT};
 
 // Re-export crates used by downstream consumers (e.g. the web backend).
 pub use openvm_circuit;
@@ -83,8 +81,7 @@ pub fn openvm_version() -> &'static str {
 pub fn load_config(config_path: &Path) -> Result<AppConfig<SdkVmConfig>> {
     let toml_str = std::fs::read_to_string(config_path)
         .wrap_err_with(|| format!("Failed to read config: {}", config_path.display()))?;
-    let vm_config = SdkVmConfig::from_toml(&toml_str)
-        .wrap_err("Failed to parse openvm.toml")?;
+    let vm_config = SdkVmConfig::from_toml(&toml_str).wrap_err("Failed to parse openvm.toml")?;
     Ok(AppConfig::new(vm_config, default_app_system_params()))
 }
 
@@ -108,18 +105,18 @@ pub fn load_agg_pk(agg_pk_path: &Path) -> Result<AggProvingKey> {
 
 /// Load aggregation verifying key from disk.
 pub fn load_agg_vk(agg_vk_path: &Path) -> Result<AggVk> {
-    read_object_from_file(agg_vk_path)
-        .wrap_err_with(|| format!("Failed to load agg verifying key: {}", agg_vk_path.display()))
+    read_object_from_file(agg_vk_path).wrap_err_with(|| {
+        format!(
+            "Failed to load agg verifying key: {}",
+            agg_vk_path.display()
+        )
+    })
 }
 
 /// Build the guest crate → ELF → VmExe, equivalent to `cargo openvm build`.
 ///
 /// This cross-compiles the guest to riscv32im and transpiles the ELF to a VmExe.
-pub fn build_guest(
-    manifest_path: &Path,
-    config_path: &Path,
-    target_dir: &Path,
-) -> Result<()> {
+pub fn build_guest(manifest_path: &Path, config_path: &Path, target_dir: &Path) -> Result<()> {
     let config = load_config(config_path)?;
     let sdk = sdk_from_config(config)?;
 
@@ -129,9 +126,11 @@ pub fn build_guest(
         .ok_or_else(|| eyre::eyre!("Invalid manifest path"))?;
     let target_filter = Default::default();
 
-    let elf = sdk.build(guest_opts, pkg_dir, &target_filter, None)
+    let elf = sdk
+        .build(guest_opts, pkg_dir, &target_filter, None)
         .wrap_err("Failed to build guest ELF")?;
-    let exe = sdk.convert_to_exe(elf)
+    let exe = sdk
+        .convert_to_exe(elf)
         .wrap_err("Failed to convert ELF to VmExe")?;
 
     let vmexe_dir = target_dir.join("openvm/release");
@@ -148,10 +147,7 @@ pub fn build_guest(
 ///
 /// Note: the SDK also produces an `AppVerifyingKey` but we don't persist it —
 /// the client reconstructs the full VK from `agg_stark.vk` + per-program commits.
-pub fn generate_app_pk(
-    config_path: &Path,
-    target_dir: &Path,
-) -> Result<()> {
+pub fn generate_app_pk(config_path: &Path, target_dir: &Path) -> Result<()> {
     let config = load_config(config_path)?;
     let sdk = sdk_from_config(config)?;
 
@@ -161,8 +157,7 @@ pub fn generate_app_pk(
     std::fs::create_dir_all(&openvm_dir)?;
 
     let pk_path = openvm_dir.join("app.pk");
-    write_object_to_file(&pk_path, &app_pk)
-        .wrap_err("Failed to write app.pk")?;
+    write_object_to_file(&pk_path, &app_pk).wrap_err("Failed to write app.pk")?;
 
     tracing::info!("App proving key generated: {}", pk_path.display());
     Ok(())
@@ -178,12 +173,10 @@ pub fn generate_agg_keys(config_path: &Path, openvm_home: &Path) -> Result<()> {
     std::fs::create_dir_all(openvm_home)?;
 
     let pk_path = openvm_home.join("agg_stark.pk");
-    write_object_to_file(&pk_path, &agg_pk)
-        .wrap_err("Failed to write agg_stark.pk")?;
+    write_object_to_file(&pk_path, &agg_pk).wrap_err("Failed to write agg_stark.pk")?;
 
     let vk_path = openvm_home.join("agg_stark.vk");
-    write_object_to_file(&vk_path, &agg_vk)
-        .wrap_err("Failed to write agg_stark.vk")?;
+    write_object_to_file(&vk_path, &agg_vk).wrap_err("Failed to write agg_stark.vk")?;
 
     tracing::info!("Aggregation keys generated in {}", openvm_home.display());
     Ok(())
@@ -209,7 +202,8 @@ pub fn execute(
 ) -> Result<Vec<u8>> {
     let stdin = make_stdin(program_bytes);
     let sdk = sdk_from_config(config.clone())?;
-    let output = sdk.execute(exe.clone(), stdin)
+    let output = sdk
+        .execute(exe.clone(), stdin)
         .wrap_err("Guest execution failed")?;
     Ok(output)
 }
@@ -227,20 +221,22 @@ pub fn prove_stark(
     let stdin = make_stdin(program_bytes);
 
     let sdk = sdk_from_keys(app_pk.clone(), agg_pk.clone())?;
-    let mut prover = sdk.prover(exe.clone())
+    let mut prover = sdk
+        .prover(exe.clone())
         .wrap_err("Failed to create STARK prover")?;
-    let (proof, _) = prover.prove(stdin, &[])
+    let (proof, _) = prover
+        .prove(stdin, &[])
         .wrap_err("STARK proof generation failed")?;
     let baseline = prover.generate_baseline();
     let baseline_json = VerificationBaselineJson::from(baseline.clone());
     let app_exe_commit = commit_hex(baseline_json.app_exe_commit);
     let app_vm_commit = CommitBytes::from(prover.app_vm_commit());
 
-    let versioned = VersionedVmStarkProof::new(proof)
-        .wrap_err("Failed to create versioned proof")?;
+    let versioned =
+        VersionedVmStarkProof::new(proof).wrap_err("Failed to create versioned proof")?;
     let proof_version = versioned.version.clone();
-    let proof_json = serde_json::to_value(&versioned)
-        .wrap_err("Failed to serialize proof to JSON")?;
+    let proof_json =
+        serde_json::to_value(&versioned).wrap_err("Failed to serialize proof to JSON")?;
 
     Ok(StarkProveResult {
         proof_json,
@@ -306,9 +302,10 @@ pub fn prove_evm(
         .agg_pk(agg_pk.clone())
         .halo2_pk(halo2_pk.clone())
         .build()
-        .map_err(Into::into)?;
+        .wrap_err("Failed to initialize EVM proving SDK")?;
 
-    let evm_proof = sdk.prove_evm(exe.clone(), stdin, &[])
+    let evm_proof = sdk
+        .prove_evm(exe.clone(), stdin, &[])
         .wrap_err("EVM Halo2 proof generation failed")?;
 
     Ok(evm_proof)
@@ -323,7 +320,8 @@ pub fn compute_app_commit(
     agg_pk: &AggProvingKey,
 ) -> Result<(String, String)> {
     let sdk = sdk_from_keys(app_pk.clone(), agg_pk.clone())?;
-    let prover = sdk.prover(exe.clone())
+    let prover = sdk
+        .prover(exe.clone())
         .wrap_err("Failed to create STARK prover")?;
     let baseline = prover.generate_baseline();
     let app_vm_commit = CommitBytes::from(prover.app_vm_commit());
@@ -332,4 +330,242 @@ pub fn compute_app_commit(
         commit_hex(CommitBytes::from(baseline.app_exe_commit)),
         commit_hex(app_vm_commit),
     ))
+}
+
+#[cfg(feature = "evm-prove")]
+pub mod evm_halo2_mcu {
+    use std::{env, fs, io::BufReader, path::PathBuf};
+
+    use eyre::{eyre, Context, Result};
+    use openvm_sdk::{
+        fs::read_object_from_file,
+        keygen::{Halo2ProvingKey, RootProvingKey},
+        types::EvmProof,
+        Sdk,
+    };
+    use serde::{Deserialize, Serialize};
+    use snark_verifier_sdk::snark_verifier::{
+        halo2_base::halo2_proofs::{
+            halo2curves::bn256::{Bn256, Fr, G1Affine},
+            plonk::verify_proof,
+            poly::{
+                commitment::{Params, ParamsProver},
+                kzg::{
+                    commitment::{KZGCommitmentScheme, ParamsKZG},
+                    multiopen::VerifierSHPLONK,
+                    strategy::AccumulatorStrategy,
+                },
+                VerificationStrategy,
+            },
+            transcript::TranscriptReadBuffer,
+        },
+        loader::native::NativeLoader,
+        system::halo2::transcript::evm::EvmTranscript,
+    };
+    use snark_verifier_sdk::{
+        halo2::aggregation::AggregationCircuit,
+        snark_verifier::{
+            pcs::kzg::KzgDecidingKey,
+            system::halo2::{compile, Config},
+            verifier::plonk::PlonkProtocol,
+        },
+        CircuitExt,
+    };
+
+    use crate::{make_stdin, AggPk, AppPk, Exe};
+
+    const BN254_BYTES: usize = 32;
+    const NUM_ACCUMULATOR: usize = 12;
+
+    pub struct McuHalo2Artifacts {
+        pub proof: EvmProof,
+        pub proof_json: serde_json::Value,
+        pub native_verifier_key: Vec<u8>,
+    }
+
+    pub fn prove_mcu_halo2(
+        exe: &Exe,
+        app_pk: &AppPk,
+        agg_pk: &AggPk,
+        program_bytes: &[u8],
+    ) -> Result<McuHalo2Artifacts> {
+        let mut builder = Sdk::builder().app_pk(app_pk.clone()).agg_pk(agg_pk.clone());
+
+        if let Some(root_pk_path) = configured_path(&["OPENVM_ROOT_PK", "MCU_EVM_ROOT_PK"]) {
+            let root_pk: RootProvingKey = read_object_from_file(&root_pk_path).with_context(|| {
+                format!(
+                    "failed to load root proving key: {}",
+                    root_pk_path.display()
+                )
+            })?;
+            builder = builder.root_pk(root_pk);
+        }
+
+        if let Some(halo2_pk_path) = configured_path(&["OPENVM_HALO2_PK", "MCU_EVM_HALO2_PK"]) {
+            let halo2_pk: Halo2ProvingKey = read_object_from_file(&halo2_pk_path).with_context(|| {
+                format!(
+                    "failed to load Halo2 proving key: {}",
+                    halo2_pk_path.display()
+                )
+            })?;
+            builder = builder.halo2_pk(halo2_pk);
+        }
+
+        let sdk = builder.build().wrap_err("failed to initialize OpenVM SDK")?;
+
+        let proof = sdk
+            .prove_evm(exe.clone(), make_stdin(program_bytes), &[])
+            .wrap_err("failed to generate OpenVM Halo2/KZG proof")?;
+
+        verify_halo2_kzg_native(&sdk, proof.clone())
+            .wrap_err("native Halo2/KZG verifier rejected generated proof")?;
+
+        let proof_json =
+            serde_json::to_value(&proof).wrap_err("failed to serialize Halo2 proof")?;
+        let native_verifier_key = native_verifier_key_bytes(&sdk.halo2_pk())?;
+
+        Ok(McuHalo2Artifacts {
+            proof,
+            proof_json,
+            native_verifier_key,
+        })
+    }
+
+    fn configured_path(names: &[&str]) -> Option<PathBuf> {
+        names
+            .iter()
+            .find_map(|name| env::var(name).ok().filter(|value| !value.is_empty()))
+            .map(PathBuf::from)
+    }
+
+    fn verify_halo2_kzg_native(sdk: &Sdk, proof: EvmProof) -> Result<()> {
+        let halo2_pk = sdk.halo2_pk();
+        let raw_proof = decode_openvm_halo2_proof(proof)?;
+        let params = read_kzg_params(halo2_pk.wrapper.pinning.metadata.config_params.k)?;
+
+        let instances = [raw_proof.instances.as_slice()];
+        let proof_batches = [instances.as_slice()];
+        let verifier_params = params.verifier_params();
+        let mut transcript =
+            EvmTranscript::<G1Affine, NativeLoader, _, _>::init(raw_proof.proof.as_slice());
+        let strategy = verify_proof::<
+            KZGCommitmentScheme<Bn256>,
+            VerifierSHPLONK<_>,
+            _,
+            EvmTranscript<_, _, _, _>,
+            _,
+        >(
+            verifier_params,
+            halo2_pk.wrapper.pinning.pk.get_vk(),
+            AccumulatorStrategy::new(verifier_params),
+            &proof_batches,
+            &mut transcript,
+        )
+        .map_err(|error| eyre!("native Halo2 verifier failed: {error:?}"))?;
+
+        if VerificationStrategy::<_, VerifierSHPLONK<_>>::finalize(strategy) {
+            Ok(())
+        } else {
+            Err(eyre!("native KZG accumulator decision rejected proof"))
+        }
+    }
+
+    struct NativeRawProof {
+        instances: Vec<Fr>,
+        proof: Vec<u8>,
+    }
+
+    fn decode_openvm_halo2_proof(proof: EvmProof) -> Result<NativeRawProof> {
+        let accumulator = proof.proof_data.accumulator;
+        let halo2_proof = proof.proof_data.proof;
+        if accumulator.len() != NUM_ACCUMULATOR * BN254_BYTES {
+            return Err(eyre!(
+                "invalid KZG accumulator length: {}",
+                accumulator.len()
+            ));
+        }
+        if halo2_proof.len() != 43 * BN254_BYTES {
+            return Err(eyre!("invalid Halo2 proof length: {}", halo2_proof.len()));
+        }
+
+        let mut instance_words = Vec::new();
+        for chunk in accumulator.chunks_exact(BN254_BYTES) {
+            let mut word = [0; BN254_BYTES];
+            word.copy_from_slice(chunk);
+            word.reverse();
+            instance_words.push(word);
+        }
+
+        let mut app_exe_commit = [0; BN254_BYTES];
+        app_exe_commit.copy_from_slice(proof.app_commit.app_exe_commit.as_slice());
+        app_exe_commit.reverse();
+        instance_words.push(app_exe_commit);
+
+        let mut app_vm_commit = [0; BN254_BYTES];
+        app_vm_commit.copy_from_slice(proof.app_commit.app_vm_commit.as_slice());
+        app_vm_commit.reverse();
+        instance_words.push(app_vm_commit);
+
+        for byte in proof.user_public_values {
+            let mut word = [0; BN254_BYTES];
+            word[0] = byte;
+            instance_words.push(word);
+        }
+
+        let instances = instance_words
+            .iter()
+            .map(|word| {
+                Option::<Fr>::from(Fr::from_bytes(word))
+                    .ok_or_else(|| eyre!("invalid BN254 scalar instance"))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(NativeRawProof {
+            instances,
+            proof: halo2_proof,
+        })
+    }
+
+    fn read_kzg_params(k: usize) -> Result<ParamsKZG<Bn256>> {
+        let params_dir = env::var("OPENVM_KZG_PARAMS_DIR")
+            .map(std::path::PathBuf::from)
+            .or_else(|_| {
+                env::var("HOME").map(|home| std::path::PathBuf::from(home).join(".openvm/params"))
+            })
+            .wrap_err("set OPENVM_KZG_PARAMS_DIR or HOME so native KZG params can be loaded")?;
+        let path = params_dir.join(format!("kzg_bn254_{k}.srs"));
+        let file = fs::File::open(&path)
+            .with_context(|| format!("failed to open KZG params: {}", path.display()))?;
+        ParamsKZG::<Bn256>::read(&mut BufReader::new(file))
+            .map_err(|error| eyre!("failed to read KZG params {}: {error:?}", path.display()))
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct NativeHalo2VerifierKey {
+        protocol: PlonkProtocol<G1Affine>,
+        deciding_key: KzgDecidingKey<Bn256>,
+        num_pvs: Vec<usize>,
+        k: usize,
+    }
+
+    fn native_verifier_key_bytes(halo2_pk: &Halo2ProvingKey) -> Result<Vec<u8>> {
+        let k = halo2_pk.wrapper.pinning.metadata.config_params.k;
+        let params = read_kzg_params(k)?;
+        let num_pvs = halo2_pk.wrapper.pinning.metadata.num_pvs.clone();
+        let protocol = compile(
+            &params,
+            halo2_pk.wrapper.pinning.pk.get_vk(),
+            Config::kzg()
+                .with_num_instance(num_pvs.clone())
+                .with_accumulator_indices(AggregationCircuit::accumulator_indices()),
+        );
+        let deciding_key = (params.get_g()[0], params.g2(), params.s_g2()).into();
+        let native_key = NativeHalo2VerifierKey {
+            protocol,
+            deciding_key,
+            num_pvs,
+            k,
+        };
+        bincode::serialize(&native_key).wrap_err("failed to serialize native verifier key")
+    }
 }

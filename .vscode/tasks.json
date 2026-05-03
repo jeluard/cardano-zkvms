@@ -1,0 +1,2212 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "make-mcu-stark-e2e",
+			"type": "shell",
+			"command": "make mcu-stark-e2e MCU_BACKEND_URL=http://127.0.0.1:18081",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "format-real-stark-mcu",
+			"type": "shell",
+			"command": "cargo fmt --manifest-path crates/zkvms/openvm/mcu/Cargo.toml --all && cargo fmt --manifest-path crates/zkvms/openvm/verify/Cargo.toml",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "final-real-mcu-checks",
+			"type": "shell",
+			"command": "make mcu-check && make mcu-nostd-check && make mcu-test && make mcu-tool",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "final-real-stark-harness",
+			"type": "shell",
+			"command": "cd crates/zkvms/openvm/mcu && cargo run -p openvm-mcu-qemu-m33 -- --key /tmp/openvm-mcu-stark.key --proof /tmp/openvm-mcu-stark.proof",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-build",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"mcu-esp32s3-build"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "mcu-esp32s3-flash",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"mcu-esp32s3-flash"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "mcu-esp32s3-monitor",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"mcu-esp32s3-monitor"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-stop-monitor",
+			"type": "shell",
+			"command": "pkill",
+			"args": [
+				"-f",
+				"espflash monitor.*usbmodem111201"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-flash-monitor",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"mcu-esp32s3-flash-monitor"
+			],
+			"isBackground": true,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "espflash-help-reset-options",
+			"type": "shell",
+			"command": "espflash",
+			"args": [
+				"flash",
+				"--help"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-flash-monitor-usb-reset",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash flash --before usb-reset --after hard-reset --monitor --chip esp32s3 --port /dev/cu.usbmodem111201 crates/zkvms/openvm/mcu/target/xtensa-esp32s3-none-elf/debug/openvm-mcu-esp32s3",
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "list-espflash-processes",
+			"type": "shell",
+			"command": "ps -ax -o pid=,command= | grep '[e]spflash'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "kill-espflash-processes",
+			"type": "shell",
+			"command": "kill 34926 34929",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "kill-espflash-monitor-any",
+			"type": "shell",
+			"command": "ps -ax -o pid=,command= | awk '/[e]spflash flash --before usb-reset/ {print $1}' | xargs -r kill",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-flash-monitor-watchdog-reset",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash flash --before usb-reset --after watchdog-reset --monitor --chip esp32s3 --port /dev/cu.usbmodem111201 crates/zkvms/openvm/mcu/target/xtensa-esp32s3-none-elf/debug/openvm-mcu-esp32s3",
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "list-usbmodem-ports",
+			"type": "shell",
+			"command": "ls /dev/cu.usbmodem* /dev/tty.usbmodem* 2>/dev/null || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "espflash-monitor-help",
+			"type": "shell",
+			"command": "espflash",
+			"args": [
+				"monitor",
+				"--help"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "kill-all-espflash",
+			"type": "shell",
+			"command": "ps -ax -o pid=,command= | awk '/[e]spflash/ {print $1}' | xargs -r kill",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-monitor-hard-reset-only",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash monitor --before no-reset-no-sync --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem111201",
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "kill-all-espflash-2",
+			"type": "shell",
+			"command": "ps -ax -o pid=,command= | awk '/[e]spflash/ {print $1}' | xargs -r kill",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-monitor-watchdog-only",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash monitor --before no-reset-no-sync --after watchdog-reset --chip esp32s3 --port /dev/cu.usbmodem111201",
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-evm-verifier-check",
+			"type": "shell",
+			"command": "cargo check --manifest-path crates/zkvms/openvm/mcu/Cargo.toml -p openvm-mcu-verifier-core -p openvm-mcu-host-tools",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "mcu-evm-verifier-nostd-check",
+			"type": "shell",
+			"command": "cargo check --manifest-path crates/zkvms/openvm/mcu/Cargo.toml -p openvm-mcu-verifier-core --no-default-features",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "mcu-evm-verifier-test",
+			"type": "shell",
+			"command": "cargo test --manifest-path crates/zkvms/openvm/mcu/Cargo.toml -p openvm-mcu-verifier-core",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "mcu-host-tool-help",
+			"type": "shell",
+			"command": "cargo run --manifest-path crates/zkvms/openvm/mcu/Cargo.toml -p openvm-mcu-host-tools -- --help",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "openvm-evm-artifacts-check",
+			"type": "shell",
+			"command": "cargo check --manifest-path crates/zkvms/openvm/Cargo.toml -p openvm-prover --features evm-verify --bin openvm-evm-artifacts",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "openvm-evm-artifacts-help",
+			"type": "shell",
+			"command": "cargo run --manifest-path crates/zkvms/openvm/Cargo.toml -p openvm-prover --features evm-verify --bin openvm-evm-artifacts -- --help",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "mcu-evm-artifacts-dry-run",
+			"type": "shell",
+			"command": "make -n mcu-evm-artifacts",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "search-native-verifier-transcript",
+			"type": "shell",
+			"command": "rg -n \"EvmVerifyingKey|verify_transcript|transcript_initial_state|openvm-mcu-keygen|openvm-evm-keygen|qemu-m33-verifier\" \"/Users/julien/Library/Application Support/Code - Insiders/User/workspaceStorage/946f217b3233e3def846cf5b9ad5b8e2/GitHub.copilot-chat/transcripts/bab53863-8154-493a-b4db-0673c83ed0c4.jsonl\" crates/zkvms/openvm --glob '!**/target/**'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-espidf-target",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && rustup target list --installed | grep -E 'xtensa-esp32s3|espidf' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-verifier-core-espidf",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && cargo +esp check -p openvm-mcu-verifier-core --target xtensa-esp32s3-espidf",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "check-verifier-core-espidf-build-std",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && cargo +esp check -p openvm-mcu-verifier-core --target xtensa-esp32s3-espidf -Zbuild-std=std,panic_abort",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "find-revm-executor-files",
+			"type": "shell",
+			"command": "find /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-0.2.3/src -path '*evm*' -maxdepth 6 -type f | sort",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-evm-e2e-direct-revm",
+			"type": "shell",
+			"command": "make mcu-evm-e2e",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "openvm-native-halo2-artifacts-check",
+			"type": "shell",
+			"command": "cargo check --manifest-path crates/zkvms/openvm/Cargo.toml -p openvm-prover --features evm-prove --bin openvm-evm-artifacts",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "mcu-native-halo2-artifacts",
+			"type": "shell",
+			"command": "make mcu-evm-artifacts",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "check-openvm-artifact-status",
+			"type": "shell",
+			"command": "ls -l /tmp/openvm-evm-proof.json /tmp/openvm-evm-verifier/native-verifier.json 2>&1; ps -axo pid,stat,etime,command | grep -E 'openvm-evm-artifacts|make mcu-evm-artifacts' | grep -v grep || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "search-snark-verifier-codegen",
+			"type": "shell",
+			"command": "rg -n \"gen_.*verifier|codegen|compile|evm_verify|NativeLoader|EvmTranscript|verify_proof\" /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-0.2.3 /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-sdk-0.2.3 | head -200",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-openvm-artifact-result",
+			"type": "shell",
+			"command": "ls -l /tmp/openvm-evm-proof.json /tmp/openvm-evm-verifier/native-verifier.json 2>&1; ps -axo pid,stat,etime,command | grep -E 'openvm-evm-artifacts|make mcu-evm-artifacts' | grep -v grep || true; tail -40 /tmp/openvm-evm-verifier.json 2>/dev/null || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-openvm-artifact-process-only",
+			"type": "shell",
+			"command": "ps -axo pid,pcpu,pmem,stat,etime,command | grep -E 'openvm-evm-artifacts|make mcu-evm-artifacts' | grep -v grep || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-espidf-target",
+			"type": "shell",
+			"command": "rustup target list --installed | grep -E 'esp32s3|xtensa|espidf' || true; command -v cargo-espflash || true; command -v espup || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "probe-esp-toolchain-installed",
+			"type": "shell",
+			"command": "rustup target list --installed | grep -E 'esp32s3|xtensa|espidf' || true; command -v cargo-espflash || true; command -v espup || true; command -v espflash || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-verifier-core-check-no-revm",
+			"type": "shell",
+			"command": "cd crates/zkvms/openvm/mcu && cargo check -p openvm-mcu-verifier-core --features std",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "check-openvm-artifact-process-2",
+			"type": "shell",
+			"command": "ps -axo pid,pcpu,pmem,stat,etime,command | grep -E 'openvm-evm-artifacts|make mcu-evm-artifacts' | grep -v grep || true; ls -l /tmp/openvm-evm-verifier/native-verifier.json 2>&1",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-build-no-revm",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && cargo +esp build -p openvm-mcu-esp32s3 -Zbuild-std=core,alloc --target xtensa-esp32s3-none-elf",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "check-native-proof-process-3",
+			"type": "shell",
+			"command": "ps -axo pid,pcpu,pmem,stat,etime,command | grep -E 'openvm-evm-artifacts|make mcu-evm-artifacts' | grep -v grep || true; ls -l /tmp/openvm-evm-verifier/native-verifier.json /tmp/openvm-evm-proof.json 2>&1",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-native-halo2-pack",
+			"type": "shell",
+			"command": "make mcu-evm-pack",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-flash-native-proof",
+			"type": "shell",
+			"command": "PV_LEN=$(node -e 'const fs=require(\"fs\"); const proof=JSON.parse(fs.readFileSync(\"/tmp/openvm-evm-proof.json\", \"utf8\")); const hex=(proof.user_public_values || \"\").replace(/^0x/, \"\"); console.log((hex.length / 2) + \" bytes\");'); PROOF_SHA=$(shasum -a 256 /tmp/openvm-evm-proof.json | awk '{print substr($1, 1, 16)}'); ESP32S3_HOST_EVM_STATUS=\"native host verified\" ESP32S3_HOST_EVM_DETAIL=\"Halo2/KZG checked by native host verifier\" ESP32S3_HOST_EVM_PROOF_SHA=\"$PROOF_SHA\" ESP32S3_HOST_EVM_PUBLIC_VALUES=\"$PV_LEN\" ESP32S3_VERIFIER_KEY=\"/tmp/openvm-mcu-evm.key\" ESP32S3_PROOF_ENVELOPE=\"/tmp/openvm-mcu-evm.proof\" make mcu-esp32s3-flash",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "probe-espidf-std-target",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cargo +esp -Z unstable-options -vV && cd crates/zkvms/openvm/mcu && cargo +esp check -p openvm-mcu-verifier-core --target xtensa-esp32s3-espidf --features std",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "probe-espidf-build-std",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && cargo +esp check -p openvm-mcu-verifier-core --target xtensa-esp32s3-espidf -Zbuild-std=std,panic_abort --features std",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "trace-revm-dependency",
+			"type": "shell",
+			"command": "cargo tree --manifest-path crates/zkvms/openvm/Cargo.toml -p openvm-prover --features evm-prove -i revm",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "refresh-openvm-lock-no-revm",
+			"type": "shell",
+			"command": "cargo update --manifest-path crates/zkvms/openvm/Cargo.toml -p snark-verifier -p snark-verifier-sdk && cargo tree --manifest-path crates/zkvms/openvm/Cargo.toml -p openvm-prover --features evm-prove -i revm || true && rg -n '^name = \"revm\"|\"revm\"' crates/zkvms/openvm/Cargo.lock || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "regenerate-openvm-lock-no-revm",
+			"type": "shell",
+			"command": "rm crates/zkvms/openvm/Cargo.lock && cargo generate-lockfile --manifest-path crates/zkvms/openvm/Cargo.toml && rg -n '^name = \"revm\"|\"revm\"' crates/zkvms/openvm/Cargo.lock || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-mcu-verifier-feature-split",
+			"type": "shell",
+			"command": "cargo check --manifest-path crates/zkvms/openvm/mcu/Cargo.toml -p openvm-mcu-verifier-core && cargo check --manifest-path crates/zkvms/openvm/mcu/Cargo.toml -p openvm-mcu-verifier-core --no-default-features --features halo2-std",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "probe-espidf-halo2-std-narrow",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && cargo +esp check -p openvm-mcu-verifier-core --target xtensa-esp32s3-espidf -Zbuild-std=std,panic_abort --no-default-features --features halo2-std",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "trace-radium-halo2-std",
+			"type": "shell",
+			"command": "cd crates/zkvms/openvm/mcu && cargo tree -p openvm-mcu-verifier-core --no-default-features --features halo2-std -i radium",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "prepare-temp-radium-xtensa",
+			"type": "shell",
+			"command": "src='/Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/radium-0.7.0'; dst='/tmp/radium-0.7.0-xtensa'; if [ ! -e \"$dst\" ]; then cp -R \"$src\" \"$dst\"; fi; test -f \"$dst/build.rs\" && printf 'exists: %s/build.rs\\n' \"$dst\"",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "probe-espidf-halo2-std-patched-radium",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && cargo +esp check -p openvm-mcu-verifier-core --target xtensa-esp32s3-espidf -Zbuild-std=std,panic_abort --no-default-features --features halo2-std --config 'patch.crates-io.radium.path=\"/tmp/radium-0.7.0-xtensa\"'",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "search-halo2-vk-serde-openvm-types",
+			"type": "shell",
+			"command": "rg -n 'struct VerifyingKey|derive\\(.*Serialize|impl.*Serialize.*VerifyingKey|struct Halo2ProvingKey|RootProvingKey|pinning|wrapper' /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/halo2-axiom-0.5.1/src /Users/julien/.cargo/git/checkouts/openvm-* /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-sdk-0.2.3/src | head -200",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "search-snark-protocol-types",
+			"type": "shell",
+			"command": "rg -n 'struct .*Protocol|PlonkProtocol|Protocol\\<|compile\\(|from\\(.*VerifyingKey|num_instance|preprocess|SerdeFormat|read.*protocol' /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-0.2.3/src /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-sdk-0.2.3/src | head -220",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "search-sdk-verify-snark",
+			"type": "shell",
+			"command": "rg -n 'PlonkSuccinctVerifier|verify_snark|KzgAs|AccumulationScheme|read_proof|verify\\(' /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-sdk-0.2.3/src | head -160",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "search-fallback-evm-verifier",
+			"type": "shell",
+			"command": "rg -n 'generate_fallback_evm_verifier|accumulator_indices|Halo2WrapperProvingKey' /Users/julien/.cargo/git/checkouts/openvm-e4fe658744a82733/30a13e2 /Users/julien/.cargo/git/checkouts/openvm-e4fe658744a82733/e8feb93 | head -200",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-native-halo2-verifier-core-impl",
+			"type": "shell",
+			"command": "cargo check --manifest-path crates/zkvms/openvm/mcu/Cargo.toml -p openvm-mcu-verifier-core --no-default-features --features halo2-std && cargo check --manifest-path crates/zkvms/openvm/Cargo.toml -p openvm-prover --features evm-prove --bin openvm-evm-artifacts",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "check-native-halo2-verifier-core-impl-2",
+			"type": "shell",
+			"command": "cargo check --manifest-path crates/zkvms/openvm/mcu/Cargo.toml -p openvm-mcu-verifier-core --no-default-features --features halo2-std && cargo check --manifest-path crates/zkvms/openvm/Cargo.toml -p openvm-prover --features evm-prove --bin openvm-evm-artifacts",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "regenerate-native-halo2-verifier-bin",
+			"type": "shell",
+			"command": "make mcu-evm-artifacts",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "check-openvm-artifacts-process-native-bin",
+			"type": "shell",
+			"command": "ps -axo pid,pcpu,pmem,stat,etime,command | grep -E 'openvm-evm-artifacts|make mcu-evm-artifacts' | grep -v grep || true; ls -l /tmp/openvm-evm-verifier/native-verifier.bin /tmp/openvm-evm-verifier/native-verifier.json /tmp/openvm-evm-proof.json 2>&1",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-openvm-artifacts-process-native-bin-2",
+			"type": "shell",
+			"command": "ps -axo pid,pcpu,pmem,stat,etime,command | grep -E 'openvm-evm-artifacts|make mcu-evm-artifacts' | grep -v grep || true; ls -lh /tmp/openvm-evm-verifier/native-verifier.bin /tmp/openvm-evm-verifier/native-verifier.json /tmp/openvm-evm-proof.json 2>&1",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-dummy",
+			"type": "shell",
+			"command": "make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-stack",
+			"type": "shell",
+			"command": "RUST_MIN_STACK=16777216 make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "check-native-verifier-artifacts-now",
+			"type": "shell",
+			"command": "for f in /tmp/openvm-evm-verifier/native-verifier.bin /tmp/openvm-evm-verifier.bin /tmp/openvm-evm-proof.json /tmp/openvm-mcu-evm.key /tmp/openvm-mcu-evm.proof; do if [[ -e \"$f\" ]]; then stat -f '%N size=%z mtime=%Sm' \"$f\"; else echo \"$f MISSING\"; fi; done; pgrep -af 'openvm-evm-artifacts|mcu-evm-artifacts' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-esp-link-tools",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && command -v ldproxy && command -v espflash && command -v cargo && cargo +esp -Vv | sed -n '1,12p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-xtensa-literal-flags",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && xtensa-esp32s3-elf-gcc --help=target 2>/dev/null | rg 'literal|text-section' || xtensa-esp-elf-gcc --help=target 2>/dev/null | rg 'literal|text-section' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-rustc-xtensa-features",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cargo +esp rustc -Z unstable-options --print target-features --target xtensa-esp32s3-espidf 2>/dev/null | rg 'literal|text' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-xtensa-ld-literal-flags",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && xtensa-esp-elf-ld --help 2>/dev/null | rg 'literal|text-section' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "pack-and-host-verify-native-halo2-mcu-artifacts",
+			"type": "shell",
+			"command": "make mcu-evm-pack && cd crates/zkvms/openvm/mcu && cargo run -p openvm-mcu-host-tools -- verify-evm --key /tmp/openvm-mcu-evm.key --proof /tmp/openvm-mcu-evm.proof",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "search-accumulator-encoding-types",
+			"type": "shell",
+			"command": "rg -n 'AccumulatorEncoding|struct .*Accumulator|type .*Accumulator' /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-* /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-sdk-* | head -80",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "search-openvm-limbs-encoding",
+			"type": "shell",
+			"command": "rg -n 'LimbsEncoding|accumulator_indices|SHPLONK' crates/zkvms/openvm /Users/julien/.cargo/git/checkouts /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/openvm-* /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/snark-verifier-sdk-* 2>/dev/null | head -120",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "search-openvm-limbs-encoding-2",
+			"type": "shell",
+			"command": "rg -n 'LimbsEncoding|accumulator_indices|SHPLONK' crates/zkvms/openvm /Users/julien/.cargo/git/checkouts /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f 2>/dev/null | head -160",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "host-verify-native-halo2-mcu-artifacts-fixed",
+			"type": "shell",
+			"command": "cd crates/zkvms/openvm/mcu && cargo run -p openvm-mcu-host-tools -- verify-evm --key /tmp/openvm-mcu-evm.key --proof /tmp/openvm-mcu-evm.proof",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-ldproxy",
+			"type": "shell",
+			"command": "RUST_MIN_STACK=16777216 make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-stack32",
+			"type": "shell",
+			"command": "RUST_MIN_STACK=33554432 make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "search-xtensa-llvm-size-reduce-flag",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cargo +esp rustc -- -Cllvm-args=--help-hidden 2>&1 | rg -i 'xtensa|size.*reduce|reduce.*size' | head -80",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-stack64",
+			"type": "shell",
+			"command": "RUST_MIN_STACK=67108864 make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "ldproxy-help",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && ldproxy --help 2>&1 | sed -n '1,120p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "search-ldproxy-linker-arg",
+			"type": "shell",
+			"command": "rg -n 'LDPROXY_LINKER_ARG|ldproxy-linker' /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embuild-0.33.1 /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ldproxy-0.3.4",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-esp-gcc-path",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && (command -v xtensa-esp32s3-elf-gcc || true) && (command -v xtensa-esp-elf-gcc || true)",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-linkerarg",
+			"type": "shell",
+			"command": "RUST_MIN_STACK=67108864 make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-lean-codegen",
+			"type": "shell",
+			"command": "CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 RUST_MIN_STACK=134217728 make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-mcu-env",
+			"type": "shell",
+			"command": "MCU=esp32s3 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 RUST_MIN_STACK=134217728 make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "inspect-esp-idf-sys-build-output",
+			"type": "shell",
+			"command": "latest=$(ls -td crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/build/esp-idf-sys-*/ 2>/dev/null | head -1); echo \"$latest\"; if [[ -n \"$latest\" ]]; then find \"$latest\" -maxdepth 2 -type f \\( -name output -o -name stderr -o -name root-output \\) -print -exec sed -n '1,160p' {} \\;; fi",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "inspect-esp-idf-link-args",
+			"type": "shell",
+			"command": "latest=$(ls -td crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/build/esp-idf-sys-*/ 2>/dev/null | head -1); rg -n 'cargo:rustc-link|ldproxy|link-search|link-arg' \"$latest\" -S | head -200",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "search-embuild-sysenv-output",
+			"type": "shell",
+			"command": "rg -n 'sysenv::output|EMBUILD_LINK_ARGS|DEP_ESP_IDF|espidf::sysenv' /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/embuild-0.33.1 /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-idf-sys-0.36.1",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-sysenv",
+			"type": "shell",
+			"command": "MCU=esp32s3 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 RUST_MIN_STACK=134217728 make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "inspect-xtensa-rust-target-features",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh >/dev/null 2>&1; rustc --print target-features --target xtensa-esp32s3-espidf | rg -n 'literal|long|text|xtensa|feature' -C 3 || true; xtensa-esp32s3-elf-gcc -Q --help=target 2>/dev/null | rg -n 'literal|long|pool|text' -C 2 || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "inspect-xtensa-llvm-hidden-options",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh >/dev/null 2>&1; rustc -C llvm-args=--help-hidden --target xtensa-esp32s3-espidf 2>&1 | rg -n 'literal|pool|longcall|long-call|xtensa' -C 2 | head -120 || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-release",
+			"type": "shell",
+			"command": "MCU=esp32s3 CARGO_INCREMENTAL=0 RUST_MIN_STACK=134217728 . /Users/julien/export-esp.sh >/dev/null 2>&1 && cd crates/zkvms/openvm/mcu && cargo +esp build --release -p openvm-mcu-esp32s3 -Zbuild-std=std,panic_abort --target xtensa-esp32s3-espidf --no-default-features --config 'patch.crates-io.radium.path=\"/tmp/radium-0.7.0-xtensa\"'",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-espidf-halo2-std-dev-opt1",
+			"type": "shell",
+			"command": "MCU=esp32s3 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_DEV_OPT_LEVEL=1 RUST_MIN_STACK=134217728 make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "flash-esp32s3-halo2-std-real-proof",
+			"type": "shell",
+			"command": "MCU=esp32s3 make mcu-esp32s3-flash-halo2-std",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "check-flash-task-processes",
+			"type": "shell",
+			"command": "pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true; ls -l /tmp/openvm-mcu-evm.key /tmp/openvm-mcu-evm.proof 2>/dev/null || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-flash-task-progress",
+			"type": "shell",
+			"command": "pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true; tail -n 80 /Users/julien/Library/Application\\ Support/Code\\ -\\ Insiders/User/workspaceStorage/946f217b3233e3def846cf5b9ad5b8e2/GitHub.copilot-chat/chat-session-resources/bab53863-8154-493a-b4db-0673c83ed0c4/call_does_not_exist 2>/dev/null || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-flash-task-progress-2",
+			"type": "shell",
+			"command": "pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; stat -f '%Sm %N' /tmp/openvm-evm-proof.json /tmp/openvm-mcu-evm.proof /tmp/openvm-mcu-evm.key 2>/dev/null || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime-2",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "audit-revm-references-source",
+			"type": "shell",
+			"command": "rg -n '(^name = \"revm\"|\\brevm\\b|bytecode)' Cargo.toml crates/zkvms/openvm crates/zkvms/openvm/mcu --glob '!target/**' --glob '!**/.embuild/**' --glob '!Cargo.lock' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "audit-revm-references-source-2",
+			"type": "shell",
+			"command": "rg -n '(^name = \"revm\"|\\brevm\\b|bytecode)' Cargo.toml crates/zkvms/openvm crates/zkvms/openvm/mcu --glob '!target/**' --glob '!**/.embuild/**' --glob '!Cargo.lock' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime-3",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime-4",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime-5",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "compact-git-status-source-only",
+			"type": "shell",
+			"command": "git status --short -- . ':!crates/zkvms/openvm/mcu/.embuild' | head -n 80",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime-6",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime-7",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime-8",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime-9",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-proof-process-runtime-10",
+			"type": "shell",
+			"command": "ps -o pid,etime,%cpu,%mem,command -p 5655 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|espflash|cargo \\+esp|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "verify-existing-packed-halo2-artifacts",
+			"type": "shell",
+			"command": "cd crates/zkvms/openvm/mcu && cargo run -p openvm-mcu-host-tools -- verify-evm --key /tmp/openvm-mcu-evm.key --proof /tmp/openvm-mcu-evm.proof",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "stop-redundant-openvm-proof-run",
+			"type": "shell",
+			"command": "kill 5655 5654 5606 2>/dev/null || true; pgrep -fl 'openvm-evm-artifacts|make mcu-esp32s3-flash-halo2-std' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "flash-esp32s3-existing-host-verified-halo2",
+			"type": "shell",
+			"command": "PV_LEN=$(node -e 'const fs=require(\"fs\"); const proof=JSON.parse(fs.readFileSync(process.argv[1], \"utf8\")); const hex=(proof.user_public_values || \"\").replace(/^0x/, \"\"); console.log((hex.length / 2) + \" bytes\");' /tmp/openvm-evm-proof.json); PROOF_SHA=$(shasum -a 256 /tmp/openvm-evm-proof.json | awk '{print substr($1, 1, 16)}'); MCU=esp32s3 ESP32S3_HOST_EVM_STATUS=\"native host verified\" ESP32S3_HOST_EVM_DETAIL=\"Halo2/KZG checked by native host verifier\" ESP32S3_HOST_EVM_PROOF_SHA=\"$PROOF_SHA\" ESP32S3_HOST_EVM_PUBLIC_VALUES=\"$PV_LEN\" ESP32S3_VERIFIER_KEY=\"/tmp/openvm-mcu-evm.key\" ESP32S3_PROOF_ENVELOPE=\"/tmp/openvm-mcu-evm.proof\" make mcu-esp32s3-espidf-flash",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "espflash-monitor-help",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash monitor --help | sed -n '1,160p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "espflash-help-reset",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash --help | sed -n '1,140p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "espflash-reset-help",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --help | sed -n '1,160p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-serial-tools",
+			"type": "shell",
+			"command": "command -v python3; python3 - <<'PY'\ntry:\n    import serial\n    print('pyserial: yes')\nexcept Exception as exc:\n    print(f'pyserial: no: {exc}')\nPY\ncommand -v screen || true; command -v cu || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "flash-esp32s3-usb-console-halo2",
+			"type": "shell",
+			"command": "PV_LEN=$(node -e 'const fs=require(\"fs\"); const proof=JSON.parse(fs.readFileSync(process.argv[1], \"utf8\")); const hex=(proof.user_public_values || \"\").replace(/^0x/, \"\"); console.log((hex.length / 2) + \" bytes\");' /tmp/openvm-evm-proof.json); PROOF_SHA=$(shasum -a 256 /tmp/openvm-evm-proof.json | awk '{print substr($1, 1, 16)}'); MCU=esp32s3 ESP32S3_HOST_EVM_STATUS=\"native host verified\" ESP32S3_HOST_EVM_DETAIL=\"Halo2/KZG checked by native host verifier\" ESP32S3_HOST_EVM_PROOF_SHA=\"$PROOF_SHA\" ESP32S3_HOST_EVM_PUBLIC_VALUES=\"$PV_LEN\" ESP32S3_VERIFIER_KEY=\"/tmp/openvm-mcu-evm.key\" ESP32S3_PROOF_ENVELOPE=\"/tmp/openvm-mcu-evm.proof\" make mcu-esp32s3-espidf-flash",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "esp32s3-port-board-info",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash list-ports && espflash board-info --before usb-reset --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem111201",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "list-macos-serial-ports",
+			"type": "shell",
+			"command": "ls -1 /dev/cu.* /dev/tty.* 2>/dev/null | sed -n '1,120p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "usb-device-check",
+			"type": "shell",
+			"command": "system_profiler SPUSBDataType | rg -i 'esp|jtag|serial|waveshare|usb jtag|cp210|ch340|modem' -C 2 || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "flash-esp32s3-usb-console-halo2-retry",
+			"type": "shell",
+			"command": "PV_LEN=$(node -e 'const fs=require(\"fs\"); const proof=JSON.parse(fs.readFileSync(process.argv[1], \"utf8\")); const hex=(proof.user_public_values || \"\").replace(/^0x/, \"\"); console.log((hex.length / 2) + \" bytes\");' /tmp/openvm-evm-proof.json); PROOF_SHA=$(shasum -a 256 /tmp/openvm-evm-proof.json | awk '{print substr($1, 1, 16)}'); MCU=esp32s3 ESP32S3_HOST_EVM_STATUS=\"native host verified\" ESP32S3_HOST_EVM_DETAIL=\"Halo2/KZG checked by native host verifier\" ESP32S3_HOST_EVM_PROOF_SHA=\"$PROOF_SHA\" ESP32S3_HOST_EVM_PUBLIC_VALUES=\"$PV_LEN\" ESP32S3_VERIFIER_KEY=\"/tmp/openvm-mcu-evm.key\" ESP32S3_PROOF_ENVELOPE=\"/tmp/openvm-mcu-evm.proof\" make mcu-esp32s3-espidf-flash",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-flash-retry-process",
+			"type": "shell",
+			"command": "pgrep -fl 'espflash flash|mcu-esp32s3-espidf-flash|openvm-mcu-esp32s3' || true; ls -1 /dev/cu.* /dev/tty.* 2>/dev/null | sed -n '1,80p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "stop-hung-espflash",
+			"type": "shell",
+			"command": "kill 35441 35440 35048 2>/dev/null || true; pgrep -fl 'espflash flash|mcu-esp32s3-espidf-flash' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "flash-esp32s3-no-reset-bootloader",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash flash --before no-reset --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem111201 crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/openvm-mcu-esp32s3",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-no-reset-flash-process",
+			"type": "shell",
+			"command": "pgrep -fl 'espflash flash' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "flash-esp32s3-tty-usb-reset",
+			"type": "shell",
+			"command": "kill 37337 2>/dev/null || true; . /Users/julien/export-esp.sh && espflash flash --before usb-reset --after hard-reset --chip esp32s3 --port /dev/tty.usbmodem111201 crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/openvm-mcu-esp32s3",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-tty-flash-process",
+			"type": "shell",
+			"command": "pgrep -fl 'espflash flash' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "stop-flash-handshake-waits",
+			"type": "shell",
+			"command": "kill 37337 39227 2>/dev/null || true; sleep 1; kill -9 37337 39227 2>/dev/null || true; pgrep -fl 'espflash flash' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "inspect-espflash-process-state",
+			"type": "shell",
+			"command": "ps -o pid,ppid,stat,etime,command -p 37337,39227 || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-port-after-replug",
+			"type": "shell",
+			"command": "pgrep -fl 'espflash flash' || true; ls -1 /dev/cu.* /dev/tty.* 2>/dev/null | grep -E 'usbmodem|debug-console|Bluetooth'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "flash-esp32s3-usb-console-halo2-bootloader",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash flash --before no-reset --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem111201 crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/openvm-mcu-esp32s3",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "inspect-macos-serial-devices",
+			"type": "shell",
+			"command": "ls -l /dev/cu.usbmodem111201 /dev/tty.usbmodem111201 /dev/cu.debug-console /dev/tty.debug-console 2>/dev/null || true; system_profiler SPUSBDataType 2>/dev/null | grep -A12 -E 'ESP|JTAG|Serial|USB JTAG|debug|CP210|CH340' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "espflash-monitor-help",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash monitor --help | sed -n '1,160p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "espflash-commands-help",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash --help | sed -n '1,120p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "esp32s3-reset-to-app",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --chip esp32s3 --port /dev/cu.usbmodem111201",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "inspect-flashed-elf-and-sdkconfig",
+			"type": "shell",
+			"command": "ELF=crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/openvm-mcu-esp32s3; ls -lh \"$ELF\"; stat -f '%Sm %N' \"$ELF\"; strings \"$ELF\" | rg 'openvm-mcu-esp32s3-espidf: (boot|proof_status|detail)' | sed -n '1,20p'; find crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/build -path '*/out/sdkconfig' -print0 | xargs -0 stat -f '%m %Sm %N' | sort -nr | sed -n '1,6p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "esp32s3-reset-before-monitor",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --chip esp32s3 --port /dev/cu.usbmodem111201",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "espflash-reset-help",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --help | sed -n '1,120p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "esp32s3-hard-reset-from-stub",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --before no-reset-no-sync --after hard-reset --no-stub --chip esp32s3 --port /dev/cu.usbmodem111201",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "esp32s3-usb-hard-reset-no-stub",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --before usb-reset --after hard-reset --no-stub --chip esp32s3 --port /dev/cu.usbmodem111201",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build-esp32s3-direct-usb-status",
+			"type": "shell",
+			"command": "PV_LEN=$(node -e 'const fs=require(\"fs\"); const proof=JSON.parse(fs.readFileSync(process.argv[1], \"utf8\")); const hex=(proof.user_public_values || \"\").replace(/^0x/, \"\"); console.log((hex.length / 2) + \" bytes\");' /tmp/openvm-evm-proof.json); PROOF_SHA=$(shasum -a 256 /tmp/openvm-evm-proof.json | awk '{print substr($1, 1, 16)}'); MCU=esp32s3 ESP32S3_HOST_EVM_STATUS=\"native host verified\" ESP32S3_HOST_EVM_DETAIL=\"Halo2/KZG checked by native host verifier\" ESP32S3_HOST_EVM_PROOF_SHA=\"$PROOF_SHA\" ESP32S3_HOST_EVM_PUBLIC_VALUES=\"$PV_LEN\" ESP32S3_VERIFIER_KEY=\"/tmp/openvm-mcu-evm.key\" ESP32S3_PROOF_ENVELOPE=\"/tmp/openvm-mcu-evm.proof\" make mcu-esp32s3-espidf-build",
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "flash-esp32s3-direct-usb-status",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash flash --before no-reset --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem111201 crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/openvm-mcu-esp32s3",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "list-port-after-app-reset",
+			"type": "shell",
+			"command": "ls -1 /dev/cu.* /dev/tty.* 2>/dev/null | grep -E 'usbmodem|debug-console|Bluetooth'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mcu-esp32s3-espidf-build-ble",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"mcu-esp32s3-espidf-build"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "web-build-prefix",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"web",
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "backend-check",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--manifest-path",
+				"web/crates/backend/Cargo.toml"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "esp32s3-reset-usbmodem101",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --before usb-reset --after hard-reset --no-stub --chip esp32s3 --port /dev/cu.usbmodem101",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mcu-esp32s3-monitor-usb-reset-101",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash monitor --before usb-reset --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem101",
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-esp32s3-monitor-no-stub-101",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash monitor --before no-reset-no-sync --after hard-reset --no-stub --chip esp32s3 --port /dev/cu.usbmodem101",
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "serial-read-esp32s3-101",
+			"type": "shell",
+			"command": "python3 - <<'PY'\nimport time, sys\nimport serial\nport='/dev/cu.usbmodem101'\nend=time.time()+25\nwith serial.Serial(port, 115200, timeout=0.5) as ser:\n    while time.time()<end:\n        data=ser.readline()\n        if data:\n            sys.stdout.write(data.decode('utf-8','replace'))\n            sys.stdout.flush()\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "serial-read-esp32s3-101-raw",
+			"type": "shell",
+			"command": "stty -f /dev/cu.usbmodem101 115200 raw -echo && python3 - <<'PY'\nimport os, select, sys, time\nfd = os.open('/dev/cu.usbmodem101', os.O_RDONLY | os.O_NONBLOCK)\nend = time.time() + 25\ntry:\n    while time.time() < end:\n        ready, _, _ = select.select([fd], [], [], 0.5)\n        if fd in ready:\n            data = os.read(fd, 4096)\n            if data:\n                sys.stdout.write(data.decode('utf-8', 'replace'))\n                sys.stdout.flush()\nfinally:\n    os.close(fd)\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "serial-read-debug-console",
+			"type": "shell",
+			"command": "stty -f /dev/cu.debug-console 115200 raw -echo && python3 - <<'PY'\nimport os, select, sys, time\nfd = os.open('/dev/cu.debug-console', os.O_RDONLY | os.O_NONBLOCK)\nend = time.time() + 15\ntry:\n    while time.time() < end:\n        ready, _, _ = select.select([fd], [], [], 0.5)\n        if fd in ready:\n            data = os.read(fd, 4096)\n            if data:\n                sys.stdout.write(data.decode('utf-8', 'replace'))\n                sys.stdout.flush()\nfinally:\n    os.close(fd)\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mcu-artifact-sizes",
+			"type": "shell",
+			"command": "wc -c /tmp/openvm-mcu-evm.key /tmp/openvm-mcu-evm.proof 2>/dev/null",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "lsof-usbmodem101",
+			"type": "shell",
+			"command": "lsof /dev/cu.usbmodem101 /dev/tty.usbmodem101 2>/dev/null || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "flash-esp32s3-default-reset",
+			"type": "shell",
+			"command": "PV_LEN=$(node -e 'const fs=require(\"fs\"); const proof=JSON.parse(fs.readFileSync(process.argv[1], \"utf8\")); const hex=(proof.user_public_values || \"\").replace(/^0x/, \"\"); console.log((hex.length / 2) + \" bytes\");' /tmp/openvm-evm-proof.json); PROOF_SHA=$(shasum -a 256 /tmp/openvm-evm-proof.json | awk '{print substr($1, 1, 16)}'); . /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_DEV_OPT_LEVEL=1 ESP_IDF_SDKCONFIG_DEFAULTS=\"$PWD/boards/esp32s3/sdkconfig.defaults\" RUST_MIN_STACK=134217728 ESP32S3_HOST_EVM_STATUS=\"native host verified\" ESP32S3_HOST_EVM_DETAIL=\"Halo2/KZG checked by native host verifier\" ESP32S3_HOST_EVM_PROOF_SHA=\"$PROOF_SHA\" ESP32S3_HOST_EVM_PUBLIC_VALUES=\"$PV_LEN\" ESP32S3_VERIFIER_KEY=\"/tmp/openvm-mcu-evm.key\" ESP32S3_PROOF_ENVELOPE=\"/tmp/openvm-mcu-evm.proof\" cargo +esp build -p openvm-mcu-esp32s3 -Zbuild-std=std,panic_abort --target xtensa-esp32s3-espidf --no-default-features --features display-st7789,ble-transfer --config 'patch.crates-io.radium.path=\"/tmp/radium-0.7.0-xtensa\"' && espflash flash --before default-reset --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem101 target/xtensa-esp32s3-espidf/debug/openvm-mcu-esp32s3",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "esp32s3-reset-tty101",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --before usb-reset --after hard-reset --no-stub --chip esp32s3 --port /dev/tty.usbmodem101",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-board-info-usb-reset",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash board-info --before usb-reset --chip esp32s3 --port /dev/cu.usbmodem101 -v",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-board-info-usb-reset-plain",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash board-info --before usb-reset --chip esp32s3 --port /dev/cu.usbmodem101",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-board-info-default-reset",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash board-info --before default-reset --chip esp32s3 --port /dev/cu.usbmodem101",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-1200bps-touch",
+			"type": "shell",
+			"command": "stty -f /dev/cu.usbmodem101 1200 hupcl && true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esptool-chip-id",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && python -m esptool --chip esp32s3 --port /dev/cu.usbmodem101 --before usb_reset --after hard_reset chip_id",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esptool-chip-id-python3",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && python3 -m esptool --chip esp32s3 --port /dev/cu.usbmodem101 --before usb_reset --after hard_reset chip_id",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-esptool",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && command -v esptool.py || command -v esptool || env | grep -E 'ESP|IDF|PYTHON' | sed -n '1,80p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-board-info-debug-console",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash board-info --before usb-reset --chip esp32s3 --port /dev/cu.debug-console",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "flash-esp32s3-no-stub-slow",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && espflash flash --no-stub --baud 115200 --before usb-reset --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem101 target/xtensa-esp32s3-espidf/debug/openvm-mcu-esp32s3",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "which-idf-py",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && command -v idf.py || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "espflash-flash-help",
+			"type": "shell",
+			"command": "espflash flash --help | sed -n '1,160p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "flash-esp32s3-no-reset-held-boot",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && espflash flash --before no-reset --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem101 target/xtensa-esp32s3-espidf/debug/openvm-mcu-esp32s3",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "esp32s3-monitor-normal-after-secure",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash monitor --before usb-reset --after hard-reset --chip esp32s3 --port /dev/cu.usbmodem101",
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "flash-esp32s3-no-reset-no-stub-secure",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && cd crates/zkvms/openvm/mcu && espflash flash --before no-reset --after hard-reset --no-stub --baud 115200 --chip esp32s3 --port /dev/cu.usbmodem101 target/xtensa-esp32s3-espidf/debug/openvm-mcu-esp32s3",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "serial-read-esp32s3-after-reset",
+			"type": "shell",
+			"command": "stty -f /dev/cu.usbmodem101 115200 raw -echo && /tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport serial, time, sys\nport = '/dev/cu.usbmodem101'\nwith serial.Serial(port, 115200, timeout=0.2) as ser:\n    ser.dtr = True\n    ser.rts = False\n    deadline = time.time() + 60\n    while time.time() < deadline:\n        data = ser.read(4096)\n        if data:\n            sys.stdout.write(data.decode('utf-8', errors='replace'))\n            sys.stdout.flush()\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "serial-reset-boot-app-esp32s3",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport serial, time, sys\nport = '/dev/cu.usbmodem101'\nser = serial.Serial()\nser.port = port\nser.baudrate = 115200\nser.timeout = 0.2\nser.dsrdtr = False\nser.rtscts = False\nser.dtr = False\nser.rts = False\nser.open()\ntry:\n    ser.dtr = False\n    ser.rts = True\n    time.sleep(0.15)\n    ser.rts = False\n    time.sleep(0.4)\n    deadline = time.time() + 75\n    while time.time() < deadline:\n        data = ser.read(4096)\n        if data:\n            sys.stdout.write(data.decode('utf-8', errors='replace'))\n            sys.stdout.flush()\nfinally:\n    ser.close()\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-reset-polarity-scan",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport serial, time\nport = '/dev/cu.usbmodem101'\nfor dtr_idle in (False, True):\n    for reset_assert in (False, True):\n        ser = serial.Serial(port, 115200, timeout=0.2, dsrdtr=False, rtscts=False)\n        try:\n            ser.dtr = dtr_idle\n            ser.rts = not reset_assert\n            time.sleep(0.1)\n            ser.reset_input_buffer()\n            ser.rts = reset_assert\n            time.sleep(0.15)\n            ser.rts = not reset_assert\n            time.sleep(0.5)\n            data = ser.read(1024).decode('utf-8', errors='replace')\n            line = next((l for l in data.splitlines() if 'rst:' in l or 'boot:' in l or 'openvm-mcu' in l), '(no boot line)')\n            print(f'dtr_idle={dtr_idle} reset_assert={reset_assert}: {line}')\n        finally:\n            ser.close()\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-bluetooth-tools",
+			"type": "shell",
+			"command": "command -v blueutil || command -v bluetoothctl || command -v ble-scan || command -v bleak-lescan || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "python-bleak-check",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\ntry:\n    import bleak\n    print('bleak available')\nexcept Exception as exc:\n    print(f'bleak unavailable: {exc}')\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "install-bleak-temp",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python -m pip install bleak",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE = '7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    print('scanning BLE for OpenVM MCU...')\n    devices = await BleakScanner.discover(timeout=12, return_adv=True)\n    found = False\n    for device, adv in devices.values():\n        name = device.name or adv.local_name or ''\n        services = [s.lower() for s in (adv.service_uuids or [])]\n        if 'openvm' in name.lower() or SERVICE in services:\n            found = True\n            print(f'FOUND name={name!r} address={device.address} rssi={adv.rssi} services={services}')\n    if not found:\n        print('OpenVM MCU not found')\n        for device, adv in list(devices.values())[:20]:\n            print(f'nearby name={(device.name or adv.local_name or \"\")!r} address={device.address} rssi={adv.rssi}')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-bleak-process",
+			"type": "shell",
+			"command": "pgrep -fl 'BleakScanner|cardano-zkvms-pyserial|python.*bleak' || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-file",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY' >/tmp/openvm-mcu-ble-scan.log 2>&1\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE = '7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    print('scanning BLE for OpenVM MCU...', flush=True)\n    devices = await BleakScanner.discover(timeout=20, return_adv=True)\n    found = False\n    for device, adv in devices.values():\n        name = device.name or adv.local_name or ''\n        services = [s.lower() for s in (adv.service_uuids or [])]\n        if 'openvm' in name.lower() or SERVICE in services:\n            found = True\n            print(f'FOUND name={name!r} address={device.address} rssi={adv.rssi} services={services}', flush=True)\n    if not found:\n        print('OpenVM MCU not found', flush=True)\n        for device, adv in sorted(devices.values(), key=lambda item: item[1].rssi, reverse=True)[:25]:\n            print(f'nearby name={(device.name or adv.local_name or \"\")!r} address={device.address} rssi={adv.rssi}', flush=True)\nasyncio.run(main())\nPY\ncat /tmp/openvm-mcu-ble-scan.log",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-after-powercycle",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY' >/tmp/openvm-mcu-ble-scan-after-powercycle.log 2>&1\nimport asyncio, time\nfrom bleak import BleakScanner\nSERVICE = '7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 4):\n        print(f'scan attempt {attempt}', flush=True)\n        devices = await BleakScanner.discover(timeout=12, return_adv=True)\n        found = False\n        for device, adv in devices.values():\n            name = device.name or adv.local_name or ''\n            services = [s.lower() for s in (adv.service_uuids or [])]\n            if 'openvm' in name.lower() or SERVICE in services:\n                found = True\n                print(f'FOUND name={name!r} address={device.address} rssi={adv.rssi} services={services}', flush=True)\n        if found:\n            return\n        strong = sorted(devices.values(), key=lambda item: item[1].rssi, reverse=True)[:8]\n        print('not found; strongest nearby:', flush=True)\n        for device, adv in strong:\n            print(f'  name={(device.name or adv.local_name or \"\")!r} address={device.address} rssi={adv.rssi}', flush=True)\n        await asyncio.sleep(2)\n    print('OpenVM MCU not found after power cycle', flush=True)\nasyncio.run(main())\nPY\ncat /tmp/openvm-mcu-ble-scan-after-powercycle.log",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "inspect-esp32-nimble-examples",
+			"type": "shell",
+			"command": "rg -n \"BLEDevice::take|BLEDevice::init|set_device_name|get_advertising|create_service\" ~/.cargo/registry/src -g '*/esp32-nimble-0.11.1/**' | sed -n '1,120p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-esp32-nimble-src",
+			"type": "shell",
+			"command": "find ~/.cargo/registry/src -maxdepth 3 -type d -name 'esp32-nimble-0.11.1' -print",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "inspect-esp32-nimble-examples-2",
+			"type": "shell",
+			"command": "rg -n \"BLEDevice::take|BLEDevice::init|set_device_name|get_advertising|create_service\" /Users/julien/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp32-nimble-0.11.1 | sed -n '1,160p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-receive-mode",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 4):\n        print(f'scan attempt {attempt}')\n        found=False\n        devices = await BleakScanner.discover(timeout=8, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                found=True\n        if found:\n            return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "list-serial-ports-detailed",
+			"type": "shell",
+			"command": "ls -l /dev/cu.* /dev/tty.* 2>/dev/null | sed -n '1,160p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "espflash-reset-help",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --help | sed -n '1,160p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-watchdog-reset",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --chip esp32s3 --port /dev/cu.usbmodem101 --before default-reset --after watchdog-reset --non-interactive",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-after-watchdog-reset",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 5):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=6, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "inspect-generated-sdkconfig-bt",
+			"type": "shell",
+			"command": "rg -n \"CONFIG_BT_|CONFIG_ESP_CONSOLE|MAIN_TASK_STACK|TASK_WDT\" crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/build -g 'sdkconfig' -g 'sdkconfig.defaults' | sed -n '1,220p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-reset-line-probe",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport serial, time\nPORT='/dev/cu.usbmodem101'\nBAUD=115200\n\ndef read_for(ser, seconds=2.0):\n    end=time.time()+seconds\n    out=b''\n    while time.time()<end:\n        chunk=ser.read(4096)\n        if chunk:\n            out+=chunk\n    text=out.decode('utf-8','replace')\n    return '\\n'.join(line for line in text.splitlines() if line.strip())\n\nsequences = [\n    ('dtr_true_rts_pulse_true_false', True, [(True,0.25),(False,2.0)]),\n    ('dtr_true_rts_pulse_false_true', True, [(False,0.25),(True,2.0)]),\n    ('dtr_false_rts_pulse_true_false', False, [(True,0.25),(False,2.0)]),\n    ('dtr_false_rts_pulse_false_true', False, [(False,0.25),(True,2.0)]),\n]\nfor name, dtr, rts_steps in sequences:\n    print(f'=== {name} ===')\n    with serial.Serial(PORT, BAUD, timeout=0.05) as ser:\n        ser.dtr=dtr\n        time.sleep(0.1)\n        ser.reset_input_buffer()\n        for rts, delay in rts_steps:\n            ser.rts=rts\n            time.sleep(delay)\n        print(read_for(ser, 2.5) or '<no output>')\n    time.sleep(0.5)\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-while-lines-held",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 6):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=6, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-dual-port-reset-read",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport serial, time\nports=['/dev/cu.usbmodem101','/dev/cu.debug-console']\nserials=[]\nfor port in ports:\n    try:\n        ser=serial.Serial(port,115200,timeout=0.02)\n        serials.append((port,ser))\n        print(f'opened {port}')\n    except Exception as exc:\n        print(f'failed {port}: {exc}')\nmain = dict(serials).get('/dev/cu.usbmodem101')\nif main:\n    main.dtr=True\n    main.rts=False\n    time.sleep(0.2)\n    main.rts=True\n    time.sleep(0.2)\n    print('normal reset pulse: DTR=True, RTS False->True')\nfor _, ser in serials:\n    ser.reset_input_buffer()\nend=time.time()+8\nbuffers={port:b'' for port,_ in serials}\nwhile time.time()<end:\n    for port, ser in serials:\n        data=ser.read(4096)\n        if data:\n            buffers[port]+=data\n    time.sleep(0.01)\nfor port, data in buffers.items():\n    print(f'=== {port} ===')\n    print(data.decode('utf-8','replace') or '<no output>')\nfor _, ser in serials:\n    ser.close()\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-dual-port-reset-capture",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport serial, time\nports=['/dev/cu.usbmodem101','/dev/cu.debug-console']\n\ndef open_ports():\n    serials=[]\n    for port in ports:\n        try:\n            ser=serial.Serial(port,115200,timeout=0.01)\n            serials.append((port,ser))\n        except Exception as exc:\n            print(f'failed {port}: {exc}')\n    return serials\n\ndef capture(name, dtr, rts_steps):\n    print(f'=== sequence {name} ===')\n    serials=open_ports()\n    main=dict(serials).get('/dev/cu.usbmodem101')\n    for _, ser in serials:\n        ser.reset_input_buffer()\n    if main:\n        main.dtr=dtr\n        time.sleep(0.1)\n        for rts, delay in rts_steps:\n            main.rts=rts\n            time.sleep(delay)\n    buffers={port:b'' for port,_ in serials}\n    end=time.time()+4\n    while time.time()<end:\n        for port, ser in serials:\n            data=ser.read(4096)\n            if data:\n                buffers[port]+=data\n        time.sleep(0.01)\n    for port, data in buffers.items():\n        text=data.decode('utf-8','replace')\n        print(f'--- {port} ---')\n        print(text if text.strip() else '<no output>')\n    for _, ser in serials:\n        ser.close()\n    time.sleep(0.4)\n\ncapture('DTR_TRUE_RTS_FALSE_THEN_TRUE', True, [(False,0.25),(True,0.25)])\ncapture('DTR_TRUE_RTS_TRUE_THEN_FALSE', True, [(True,0.25),(False,0.25)])\ncapture('DTR_FALSE_RTS_FALSE_THEN_TRUE', False, [(False,0.25),(True,0.25)])\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-hard-reset-no-sync",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash reset --chip esp32s3 --port /dev/cu.usbmodem101 --before no-reset-no-sync --after hard-reset --non-interactive",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-after-hard-reset-no-sync",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 4):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=8, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "inspect-generated-sdkconfig-memory",
+			"type": "shell",
+			"command": "rg -n \"PSRAM|SPIRAM|HEAP|MAIN_TASK_STACK|NIMBLE_HOST_TASK_STACK|NIMBLE_MEM_ALLOC\" crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/build/esp-idf-sys-485a8853f41bf946/out/sdkconfig | sed -n '1,220p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "espflash-help-commands",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash --help | sed -n '1,180p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-board-info",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash board-info --chip esp32s3 --port /dev/cu.usbmodem101 --before default-reset --non-interactive",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-espidf-bootloader-partitions",
+			"type": "shell",
+			"command": "find crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf -type f \\( -name 'bootloader.bin' -o -name 'partition-table.bin' -o -name 'partitions.bin' -o -name '*.bin' \\) | sed -n '1,200p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "espflash-write-bin-help",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash write-bin --help | sed -n '1,180p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-flash-bootloader-partition",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash write-bin --chip esp32s3 --port /dev/cu.usbmodem101 --before default-reset --after no-reset --non-interactive 0x0 crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/bootloader.bin && espflash write-bin --chip esp32s3 --port /dev/cu.usbmodem101 --before no-reset --after hard-reset --non-interactive 0x8000 crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/partition-table.bin",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-after-full-layout",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 6):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=6, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-read-after-full-layout-reset",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport serial, time\nPORT='/dev/cu.usbmodem101'\nwith serial.Serial(PORT,115200,timeout=0.02) as ser:\n    ser.reset_input_buffer()\n    ser.dtr=True\n    ser.rts=False\n    time.sleep(0.3)\n    ser.rts=True\n    time.sleep(0.2)\n    print('capturing after DTR=True RTS False->True')\n    end=time.time()+10\n    out=b''\n    while time.time()<end:\n        data=ser.read(4096)\n        if data:\n            out+=data\n    print(out.decode('utf-8','replace') or '<no output>')\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "confirm-sdkconfig-stack-reduced",
+			"type": "shell",
+			"command": "rg -n \"CONFIG_ESP_MAIN_TASK_STACK_SIZE|CONFIG_BT_NIMBLE_HOST_TASK_STACK_SIZE\" crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/build/esp-idf-sys-*/out/sdkconfig | sed -n '1,80p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-after-stack-reduce",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 8):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-read-heartbeat-no-reset",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport serial, time\nPORT='/dev/cu.usbmodem101'\nwith serial.Serial(PORT,115200,timeout=0.05) as ser:\n    ser.dtr=True\n    ser.rts=True\n    print('reading with DTR=True RTS=True, no reset pulse')\n    end=time.time()+18\n    out=b''\n    while time.time()<end:\n        data=ser.read(4096)\n        if data:\n            out+=data\n            print(data.decode('utf-8','replace'), end='', flush=True)\n    if not out:\n        print('<no output>')\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-erase-flash",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash erase-flash --chip esp32s3 --port /dev/cu.usbmodem101 --before default-reset --after no-reset --non-interactive",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-after-erase-flash",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 8):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-after-user-reset",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 10):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-reset-held-true-true",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 6):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-reset-held-true-false",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 6):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ports-and-ble-after-cold-plug",
+			"type": "shell",
+			"command": "ls -l /dev/cu.usbmodem* /dev/cu.debug-console 2>/dev/null; /tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 8):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-startup-minimal",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 10):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "espflash-search-run-app",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash help reset | sed -n '1,220p'; espflash help flash | rg -n \"after|run|reset|stub|monitor\" -C 2",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "check-esptool-run-command",
+			"type": "shell",
+			"command": "command -v esptool.py || command -v esptool || true; esptool.py --help 2>/dev/null | rg -n \"run|reset|chip\" -C 1 || true",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "install-esptool-temp",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python -m pip install esptool >/tmp/cardano-zkvms-esptool-install.log 2>&1 && /tmp/cardano-zkvms-pyserial/bin/python -m esptool --help | sed -n '1,180p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-esptool-run-app",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python -m esptool --chip esp32s3 --port /dev/cu.usbmodem101 --before no-reset --after no-reset run",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esp32s3-esptool-run-app-no-stub",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python -m esptool --chip esp32s3 --port /dev/cu.usbmodem101 --before no-reset --after no-reset --no-stub run",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "esptool-run-help",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python -m esptool run --help | sed -n '1,160p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-after-esptool-run",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 8):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "inspect-espidf-spiram-options",
+			"type": "shell",
+			"command": "rg -n \"CONFIG_SPIRAM|CONFIG_ESP32S3_SPIRAM|SPIRAM_MODE|SPIRAM_SPEED|MALLOC.*SPIRAM\" crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/build/esp-idf-sys-485a8853f41bf946/out/sdkconfig | sed -n '1,220p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "search-espidf-spiram-kconfig",
+			"type": "shell",
+			"command": "rg -n \"config SPIRAM|SPIRAM_MODE|SPIRAM_SPEED|MALLOC.*SPIRAM|ESP32S3_SPIRAM\" ~/.espressif ~/.embuild crates/zkvms/openvm/mcu/target -g 'Kconfig*' -g 'sdkconfig*' | sed -n '1,240p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-espidf-psram-kconfig",
+			"type": "shell",
+			"command": "find ~/.espressif ~/.embuild -path '*components*' -name 'Kconfig*' 2>/dev/null | rg 'psram|spiram|esp_psram' | sed -n '1,80p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-espidf-dir",
+			"type": "shell",
+			"command": "find ~/.espressif ~/.embuild /Users/julien -maxdepth 4 -type d \\( -name 'esp-idf*' -o -name 'esp-idf' \\) 2>/dev/null | sed -n '1,120p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "print-esp-idf-path",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && printf 'IDF_PATH=%s\\n' \"$IDF_PATH\" && find \"$IDF_PATH\" -name 'Kconfig*' | rg 'psram|spiram|esp_psram' | sed -n '1,120p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-kconfig-spiram-target",
+			"type": "shell",
+			"command": "find crates/zkvms/openvm/mcu/target -name 'Kconfig*' 2>/dev/null | rg 'psram|spiram|esp_psram|esp_hw_support' | sed -n '1,120p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-esp-idf-src-registry",
+			"type": "shell",
+			"command": "find ~/.cargo/registry/src -maxdepth 3 -type d -name 'esp-idf-src-*' -print | sed -n '1,80p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-esp-idf-wide",
+			"type": "shell",
+			"command": "find ~/.embuild ~/.espressif ~/.platformio /Users/julien/.rustup -type d -name 'esp-idf' 2>/dev/null | sed -n '1,80p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "search-config-esp32s3-spiram",
+			"type": "shell",
+			"command": "rg -n \"ESP32S3_SPIRAM_SUPPORT|CONFIG_SPIRAM_MODE_OCT|CONFIG_SPIRAM_SPEED\" /Users/julien ~/.cargo ~/.espressif ~/.embuild 2>/dev/null | sed -n '1,160p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "confirm-sdkconfig-psram",
+			"type": "shell",
+			"command": "rg -n \"CONFIG_SPIRAM|CONFIG_ESP32S3_SPIRAM_SUPPORT\" crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/build/esp-idf-sys-485a8853f41bf946/out/sdkconfig | sed -n '1,120p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "confirm-sdkconfig-psram-oct",
+			"type": "shell",
+			"command": "rg -n \"CONFIG_SPIRAM_MODE|CONFIG_SPIRAM_TYPE|CONFIG_SPIRAM_SPEED|CONFIG_SPIRAM_CLK_IO|CONFIG_SPIRAM_CS_IO\" crates/zkvms/openvm/mcu/target/xtensa-esp32s3-espidf/debug/build/esp-idf-sys-485a8853f41bf946/out/sdkconfig | sed -n '1,80p'",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-openvm-mcu-ble-after-psram",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 10):\n        print(f'scan attempt {attempt}')\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\")\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}')\n                return\n    print('OpenVM MCU not found')\nasyncio.run(main())\nPY",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "post-ble-verify-state-check",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio, glob, pathlib\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def scan():\n    print('serial ports:', sorted(glob.glob('/dev/cu.usbmodem*')) + sorted(glob.glob('/dev/cu.debug-console')), flush=True)\n    found = False\n    for attempt in range(1, 5):\n        print(f'scan attempt {attempt}', flush=True)\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\", flush=True)\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                found = True\n        if found:\n            print('OpenVM MCU found', flush=True)\n            return\n    print('OpenVM MCU not found', flush=True)\nasyncio.run(scan())\nPY",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "post-ble-no-reset-probe",
+			"type": "shell",
+			"command": ". /Users/julien/export-esp.sh && espflash monitor --chip esp32s3 --port /dev/cu.usbmodem101 --before no-reset-no-sync --after no-reset --non-interactive --no-stub",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "scan-openvm-mcu-after-stack-flash",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 7):\n        print(f'scan attempt {attempt}', flush=True)\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\", flush=True)\n            if name == 'OpenVM MCU' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}', flush=True)\n                return\n    print('OpenVM MCU not found', flush=True)\nasyncio.run(main())\nPY",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "ble-send-openvm-proof-after-stack-flash",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio, hashlib, pathlib, time\nfrom bleak import BleakClient, BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nCONTROL='7b7c0002-78f1-4f9a-8b29-6f1f1d95a100'\nDATA='7b7c0003-78f1-4f9a-8b29-6f1f1d95a100'\nSTATUS='7b7c0004-78f1-4f9a-8b29-6f1f1d95a100'\nkey_bytes=pathlib.Path('/tmp/openvm-mcu-evm.key').read_bytes()\nproof_bytes=pathlib.Path('/tmp/openvm-mcu-evm.proof').read_bytes()\nproof_sha=hashlib.sha256(proof_bytes).hexdigest()\nPAYLOAD_BYTES=176\nqueue=asyncio.Queue()\n\ndef text(data):\n    return bytes(data).decode('utf-8', errors='replace').rstrip('\\x00')\n\ndef notify(_, data):\n    queue.put_nowait(text(data))\n\nasync def find_device():\n    for attempt in range(1, 8):\n        print(f'scan attempt {attempt}', flush=True)\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for device, adv in devices.values():\n            name = device.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name == 'OpenVM MCU' or name == 'nimble' or SERVICE in uuids:\n                print(f'found address={device.address} name={name!r} services={uuids}', flush=True)\n                return device\n    raise RuntimeError('OpenVM MCU service not found')\n\nasync def write_text(client, value):\n    print(f'control -> {value}', flush=True)\n    await client.write_gatt_char(CONTROL, value.encode(), response=True)\n\nasync def send_blob(client, kind, blob, label):\n    total=(len(blob)+PAYLOAD_BYTES-1)//PAYLOAD_BYTES\n    print(f'sending {label}: {len(blob)} bytes in {total} chunks', flush=True)\n    for seq, offset in enumerate(range(0, len(blob), PAYLOAD_BYTES)):\n        chunk=blob[offset:offset+PAYLOAD_BYTES]\n        packet=bytearray(4+len(chunk))\n        packet[0]=kind\n        packet[1]=seq & 0xff\n        packet[2]=(seq >> 8) & 0xff\n        packet[3]=1 if offset+len(chunk) >= len(blob) else 0\n        packet[4:]=chunk\n        await client.write_gatt_char(DATA, packet, response=False)\n        if (seq + 1) % 10 == 0 or seq + 1 == total:\n            print(f'  {label}: {seq + 1}/{total}', flush=True)\n\nasync def wait_verdict(client):\n    terminal=('verified','rejected','error')\n    deadline=time.monotonic()+20*60\n    last=None\n    while time.monotonic() < deadline:\n        try:\n            current=text(await client.read_gatt_char(STATUS))\n            if current and current != last:\n                print(f'status <- {current}', flush=True)\n                last=current\n            if current.startswith(terminal):\n                return current\n        except Exception as exc:\n            print(f'status read error: {exc}', flush=True)\n        try:\n            current=await asyncio.wait_for(queue.get(), timeout=2.0)\n            if current and current != last:\n                print(f'status <- {current}', flush=True)\n                last=current\n            if current.startswith(terminal):\n                return current\n        except asyncio.TimeoutError:\n            pass\n    raise TimeoutError('timed out waiting for MCU verdict')\n\nasync def main():\n    print(f'key={len(key_bytes)} proof={len(proof_bytes)} proof_sha={proof_sha}', flush=True)\n    device=await find_device()\n    async with BleakClient(device, timeout=30) as client:\n        print(f'connected={client.is_connected}', flush=True)\n        await client.start_notify(STATUS, notify)\n        print(f'status <- {text(await client.read_gatt_char(STATUS))}', flush=True)\n        await write_text(client, f'START {len(key_bytes)} {len(proof_bytes)} {proof_sha}')\n        await send_blob(client, 1, key_bytes, 'key')\n        await send_blob(client, 2, proof_bytes, 'proof')\n        await write_text(client, 'COMMIT')\n        verdict=await wait_verdict(client)\n        print(f'VERDICT {verdict}', flush=True)\n        await client.stop_notify(STATUS)\n        if not verdict.startswith('verified'):\n            raise SystemExit(2)\nasyncio.run(main())\nPY",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "scan-openvm-mcu-after-384k-flash",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 7):\n        print(f'scan attempt {attempt}', flush=True)\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\", flush=True)\n            if name == 'OpenVM MCU' or name == 'nimble' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}', flush=True)\n                return\n    print('OpenVM MCU not found', flush=True)\nasyncio.run(main())\nPY",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "ble-send-openvm-proof-384k",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio, hashlib, pathlib, time\nfrom bleak import BleakClient, BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nCONTROL='7b7c0002-78f1-4f9a-8b29-6f1f1d95a100'\nDATA='7b7c0003-78f1-4f9a-8b29-6f1f1d95a100'\nSTATUS='7b7c0004-78f1-4f9a-8b29-6f1f1d95a100'\nkey_bytes=pathlib.Path('/tmp/openvm-mcu-evm.key').read_bytes()\nproof_bytes=pathlib.Path('/tmp/openvm-mcu-evm.proof').read_bytes()\nproof_sha=hashlib.sha256(proof_bytes).hexdigest()\nPAYLOAD_BYTES=176\nqueue=asyncio.Queue()\n\ndef text(data): return bytes(data).decode('utf-8', errors='replace').rstrip('\\x00')\ndef notify(_, data): queue.put_nowait(text(data))\n\nasync def find_device():\n    for attempt in range(1, 8):\n        print(f'scan attempt {attempt}', flush=True)\n        devices=await BleakScanner.discover(timeout=5, return_adv=True)\n        for device, adv in devices.values():\n            name=device.name or adv.local_name or ''\n            uuids=[u.lower() for u in (adv.service_uuids or [])]\n            if name == 'OpenVM MCU' or name == 'nimble' or SERVICE in uuids:\n                print(f'found address={device.address} name={name!r} services={uuids}', flush=True)\n                return device\n    raise RuntimeError('OpenVM MCU service not found')\n\nasync def send_blob(client, kind, blob, label):\n    total=(len(blob)+PAYLOAD_BYTES-1)//PAYLOAD_BYTES\n    print(f'sending {label}: {len(blob)} bytes in {total} chunks', flush=True)\n    for seq, offset in enumerate(range(0, len(blob), PAYLOAD_BYTES)):\n        chunk=blob[offset:offset+PAYLOAD_BYTES]\n        packet=bytearray(4+len(chunk))\n        packet[0]=kind; packet[1]=seq & 0xff; packet[2]=(seq >> 8) & 0xff\n        packet[3]=1 if offset+len(chunk) >= len(blob) else 0\n        packet[4:]=chunk\n        await client.write_gatt_char(DATA, packet, response=False)\n        if (seq+1)%10 == 0 or seq+1 == total:\n            print(f'  {label}: {seq+1}/{total}', flush=True)\n\nasync def wait_verdict(client):\n    terminal=('verified','rejected','error')\n    deadline=time.monotonic()+20*60\n    last=None\n    while time.monotonic() < deadline:\n        try:\n            current=text(await client.read_gatt_char(STATUS))\n            if current and current != last:\n                print(f'status <- {current}', flush=True); last=current\n            if current.startswith(terminal): return current\n        except Exception as exc:\n            print(f'status read error: {exc}', flush=True)\n        try:\n            current=await asyncio.wait_for(queue.get(), timeout=2.0)\n            if current and current != last:\n                print(f'status <- {current}', flush=True); last=current\n            if current.startswith(terminal): return current\n        except asyncio.TimeoutError:\n            pass\n    raise TimeoutError('timed out waiting for MCU verdict')\n\nasync def main():\n    print(f'key={len(key_bytes)} proof={len(proof_bytes)} proof_sha={proof_sha}', flush=True)\n    device=await find_device()\n    async with BleakClient(device, timeout=30) as client:\n        print(f'connected={client.is_connected}', flush=True)\n        await client.start_notify(STATUS, notify)\n        print(f'status <- {text(await client.read_gatt_char(STATUS))}', flush=True)\n        start=f'START {len(key_bytes)} {len(proof_bytes)} {proof_sha}'\n        print(f'control -> {start}', flush=True)\n        await client.write_gatt_char(CONTROL, start.encode(), response=True)\n        await send_blob(client, 1, key_bytes, 'key')\n        await send_blob(client, 2, proof_bytes, 'proof')\n        print('control -> COMMIT', flush=True)\n        await client.write_gatt_char(CONTROL, b'COMMIT', response=True)\n        verdict=await wait_verdict(client)\n        print(f'VERDICT {verdict}', flush=True)\n        await client.stop_notify(STATUS)\n        if not verdict.startswith('verified'):\n            raise SystemExit(2)\nasyncio.run(main())\nPY",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "scan-openvm-mcu-after-256k-flash",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio\nfrom bleak import BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nasync def main():\n    for attempt in range(1, 5):\n        print(f'scan attempt {attempt}', flush=True)\n        devices = await BleakScanner.discover(timeout=5, return_adv=True)\n        for dev, adv in devices.values():\n            name = dev.name or adv.local_name or ''\n            uuids = [u.lower() for u in (adv.service_uuids or [])]\n            if name or uuids:\n                print(f\"  {dev.address} name={name!r} rssi={adv.rssi} services={uuids}\", flush=True)\n            if name == 'OpenVM MCU' or name == 'nimble' or SERVICE in uuids:\n                print(f'FOUND address={dev.address} name={name!r}', flush=True)\n                return\n    print('OpenVM MCU not found', flush=True)\nasyncio.run(main())\nPY",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "ble-send-openvm-proof-256k",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio, hashlib, pathlib, time\nfrom bleak import BleakClient, BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nCONTROL='7b7c0002-78f1-4f9a-8b29-6f1f1d95a100'\nDATA='7b7c0003-78f1-4f9a-8b29-6f1f1d95a100'\nSTATUS='7b7c0004-78f1-4f9a-8b29-6f1f1d95a100'\nkey_bytes=pathlib.Path('/tmp/openvm-mcu-evm.key').read_bytes(); proof_bytes=pathlib.Path('/tmp/openvm-mcu-evm.proof').read_bytes(); proof_sha=hashlib.sha256(proof_bytes).hexdigest()\nPAYLOAD_BYTES=176; queue=asyncio.Queue()\ndef text(data): return bytes(data).decode('utf-8', errors='replace').rstrip('\\x00')\ndef notify(_, data): queue.put_nowait(text(data))\nasync def find_device():\n    for attempt in range(1, 8):\n        print(f'scan attempt {attempt}', flush=True)\n        devices=await BleakScanner.discover(timeout=5, return_adv=True)\n        for device, adv in devices.values():\n            name=device.name or adv.local_name or ''; uuids=[u.lower() for u in (adv.service_uuids or [])]\n            if name == 'OpenVM MCU' or name == 'nimble' or SERVICE in uuids:\n                print(f'found address={device.address} name={name!r} services={uuids}', flush=True); return device\n    raise RuntimeError('OpenVM MCU service not found')\nasync def send_blob(client, kind, blob, label):\n    total=(len(blob)+PAYLOAD_BYTES-1)//PAYLOAD_BYTES; print(f'sending {label}: {len(blob)} bytes in {total} chunks', flush=True)\n    for seq, offset in enumerate(range(0, len(blob), PAYLOAD_BYTES)):\n        chunk=blob[offset:offset+PAYLOAD_BYTES]; packet=bytearray(4+len(chunk)); packet[0]=kind; packet[1]=seq & 0xff; packet[2]=(seq >> 8) & 0xff; packet[3]=1 if offset+len(chunk) >= len(blob) else 0; packet[4:]=chunk\n        await client.write_gatt_char(DATA, packet, response=False)\n        if (seq+1)%10 == 0 or seq+1 == total: print(f'  {label}: {seq+1}/{total}', flush=True)\nasync def wait_verdict(client):\n    terminal=('verified','rejected','error'); deadline=time.monotonic()+20*60; last=None\n    while time.monotonic() < deadline:\n        try:\n            current=text(await client.read_gatt_char(STATUS))\n            if current and current != last: print(f'status <- {current}', flush=True); last=current\n            if current.startswith(terminal): return current\n        except Exception as exc: print(f'status read error: {exc}', flush=True)\n        try:\n            current=await asyncio.wait_for(queue.get(), timeout=2.0)\n            if current and current != last: print(f'status <- {current}', flush=True); last=current\n            if current.startswith(terminal): return current\n        except asyncio.TimeoutError: pass\n    raise TimeoutError('timed out waiting for MCU verdict')\nasync def main():\n    print(f'key={len(key_bytes)} proof={len(proof_bytes)} proof_sha={proof_sha}', flush=True); device=await find_device()\n    async with BleakClient(device, timeout=30) as client:\n        print(f'connected={client.is_connected}', flush=True); await client.start_notify(STATUS, notify); print(f'status <- {text(await client.read_gatt_char(STATUS))}', flush=True)\n        start=f'START {len(key_bytes)} {len(proof_bytes)} {proof_sha}'; print(f'control -> {start}', flush=True); await client.write_gatt_char(CONTROL, start.encode(), response=True)\n        await send_blob(client, 1, key_bytes, 'key'); await send_blob(client, 2, proof_bytes, 'proof')\n        print('control -> COMMIT', flush=True); await client.write_gatt_char(CONTROL, b'COMMIT', response=True)\n        verdict=await wait_verdict(client); print(f'VERDICT {verdict}', flush=True); await client.stop_notify(STATUS)\n        if not verdict.startswith('verified'): raise SystemExit(2)\nasyncio.run(main())\nPY",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "ble-send-openvm-proof-nimble-psram",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio, hashlib, pathlib, time\nfrom bleak import BleakClient, BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nCONTROL='7b7c0002-78f1-4f9a-8b29-6f1f1d95a100'\nDATA='7b7c0003-78f1-4f9a-8b29-6f1f1d95a100'\nSTATUS='7b7c0004-78f1-4f9a-8b29-6f1f1d95a100'\nkey_bytes=pathlib.Path('/tmp/openvm-mcu-evm.key').read_bytes(); proof_bytes=pathlib.Path('/tmp/openvm-mcu-evm.proof').read_bytes(); proof_sha=hashlib.sha256(proof_bytes).hexdigest()\nPAYLOAD_BYTES=176; queue=asyncio.Queue()\ndef text(data): return bytes(data).decode('utf-8', errors='replace').rstrip('\\x00')\ndef notify(_, data): queue.put_nowait(text(data))\nasync def find_device():\n    for attempt in range(1, 10):\n        print(f'scan attempt {attempt}', flush=True)\n        devices=await BleakScanner.discover(timeout=5, return_adv=True)\n        for device, adv in devices.values():\n            name=device.name or adv.local_name or ''; uuids=[u.lower() for u in (adv.service_uuids or [])]\n            if name == 'OpenVM MCU' or name == 'nimble' or SERVICE in uuids:\n                print(f'found address={device.address} name={name!r} rssi={adv.rssi} services={uuids}', flush=True); return device\n    raise RuntimeError('OpenVM MCU service not found')\nasync def send_blob(client, kind, blob, label):\n    total=(len(blob)+PAYLOAD_BYTES-1)//PAYLOAD_BYTES; print(f'sending {label}: {len(blob)} bytes in {total} chunks', flush=True)\n    for seq, offset in enumerate(range(0, len(blob), PAYLOAD_BYTES)):\n        chunk=blob[offset:offset+PAYLOAD_BYTES]; packet=bytearray(4+len(chunk)); packet[0]=kind; packet[1]=seq & 0xff; packet[2]=(seq >> 8) & 0xff; packet[3]=1 if offset+len(chunk) >= len(blob) else 0; packet[4:]=chunk\n        await client.write_gatt_char(DATA, packet, response=False)\n        if (seq+1)%5 == 0 or seq+1 == total: print(f'  {label}: {seq+1}/{total}', flush=True)\nasync def wait_verdict(client):\n    terminal=('verified','rejected','error'); deadline=time.monotonic()+20*60; last=None\n    while time.monotonic() < deadline:\n        if not client.is_connected:\n            print('client disconnected', flush=True)\n            return 'error disconnected'\n        try:\n            current=text(await client.read_gatt_char(STATUS))\n            if current and current != last: print(f'status <- {current}', flush=True); last=current\n            if current.startswith(terminal): return current\n        except Exception as exc: print(f'status read error: {exc}', flush=True)\n        try:\n            current=await asyncio.wait_for(queue.get(), timeout=2.0)\n            if current and current != last: print(f'status <- {current}', flush=True); last=current\n            if current.startswith(terminal): return current\n        except asyncio.TimeoutError: pass\n    raise TimeoutError('timed out waiting for MCU verdict')\nasync def main():\n    print(f'key={len(key_bytes)} proof={len(proof_bytes)} proof_sha={proof_sha}', flush=True); device=await find_device()\n    async with BleakClient(device, timeout=30) as client:\n        print(f'connected={client.is_connected}', flush=True); await client.start_notify(STATUS, notify); print(f'status <- {text(await client.read_gatt_char(STATUS))}', flush=True)\n        start=f'START {len(key_bytes)} {len(proof_bytes)} {proof_sha}'; print(f'control -> {start}', flush=True); await client.write_gatt_char(CONTROL, start.encode(), response=True)\n        await send_blob(client, 1, key_bytes, 'key'); await send_blob(client, 2, proof_bytes, 'proof')\n        print('control -> COMMIT', flush=True); await client.write_gatt_char(CONTROL, b'COMMIT', response=True)\n        verdict=await wait_verdict(client); print(f'VERDICT {verdict}', flush=True); await client.stop_notify(STATUS)\n        if not verdict.startswith('verified'): raise SystemExit(2)\nasyncio.run(main())\nPY",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "ble-send-openvm-proof-psram-task",
+			"type": "shell",
+			"command": "/tmp/cardano-zkvms-pyserial/bin/python - <<'PY'\nimport asyncio, hashlib, pathlib, time\nfrom bleak import BleakClient, BleakScanner\nSERVICE='7b7c0001-78f1-4f9a-8b29-6f1f1d95a100'\nCONTROL='7b7c0002-78f1-4f9a-8b29-6f1f1d95a100'\nDATA='7b7c0003-78f1-4f9a-8b29-6f1f1d95a100'\nSTATUS='7b7c0004-78f1-4f9a-8b29-6f1f1d95a100'\nkey_bytes=pathlib.Path('/tmp/openvm-mcu-evm.key').read_bytes(); proof_bytes=pathlib.Path('/tmp/openvm-mcu-evm.proof').read_bytes(); proof_sha=hashlib.sha256(proof_bytes).hexdigest()\nPAYLOAD_BYTES=176; queue=asyncio.Queue()\ndef text(data): return bytes(data).decode('utf-8', errors='replace').rstrip('\\x00')\ndef notify(_, data): queue.put_nowait(text(data))\nasync def find_device():\n    for attempt in range(1, 10):\n        print(f'scan attempt {attempt}', flush=True)\n        devices=await BleakScanner.discover(timeout=5, return_adv=True)\n        for device, adv in devices.values():\n            name=device.name or adv.local_name or ''; uuids=[u.lower() for u in (adv.service_uuids or [])]\n            if name == 'OpenVM MCU' or name == 'nimble' or SERVICE in uuids:\n                print(f'found address={device.address} name={name!r} rssi={adv.rssi} services={uuids}', flush=True); return device\n    raise RuntimeError('OpenVM MCU service not found')\nasync def send_blob(client, kind, blob, label):\n    total=(len(blob)+PAYLOAD_BYTES-1)//PAYLOAD_BYTES; print(f'sending {label}: {len(blob)} bytes in {total} chunks', flush=True)\n    for seq, offset in enumerate(range(0, len(blob), PAYLOAD_BYTES)):\n        chunk=blob[offset:offset+PAYLOAD_BYTES]; packet=bytearray(4+len(chunk)); packet[0]=kind; packet[1]=seq & 0xff; packet[2]=(seq >> 8) & 0xff; packet[3]=1 if offset+len(chunk) >= len(blob) else 0; packet[4:]=chunk\n        await client.write_gatt_char(DATA, packet, response=False)\n        if (seq+1)%5 == 0 or seq+1 == total: print(f'  {label}: {seq+1}/{total}', flush=True)\nasync def wait_verdict(client):\n    terminal=('verified','rejected','error'); deadline=time.monotonic()+20*60; last=None\n    while time.monotonic() < deadline:\n        if not client.is_connected:\n            print('client disconnected', flush=True)\n            return 'error disconnected'\n        try:\n            current=text(await client.read_gatt_char(STATUS))\n            if current and current != last: print(f'status <- {current}', flush=True); last=current\n            if current.startswith(terminal): return current\n        except Exception as exc: print(f'status read error: {exc}', flush=True)\n        try:\n            current=await asyncio.wait_for(queue.get(), timeout=2.0)\n            if current and current != last: print(f'status <- {current}', flush=True); last=current\n            if current.startswith(terminal): return current\n        except asyncio.TimeoutError: pass\n    raise TimeoutError('timed out waiting for MCU verdict')\nasync def main():\n    print(f'key={len(key_bytes)} proof={len(proof_bytes)} proof_sha={proof_sha}', flush=True); device=await find_device()\n    async with BleakClient(device, timeout=30) as client:\n        print(f'connected={client.is_connected}', flush=True); await client.start_notify(STATUS, notify); print(f'status <- {text(await client.read_gatt_char(STATUS))}', flush=True)\n        start=f'START {len(key_bytes)} {len(proof_bytes)} {proof_sha}'; print(f'control -> {start}', flush=True); await client.write_gatt_char(CONTROL, start.encode(), response=True)\n        await send_blob(client, 1, key_bytes, 'key'); await send_blob(client, 2, proof_bytes, 'proof')\n        print('control -> COMMIT', flush=True); await client.write_gatt_char(CONTROL, b'COMMIT', response=True)\n        verdict=await wait_verdict(client); print(f'VERDICT {verdict}', flush=True); await client.stop_notify(STATUS)\n        if not verdict.startswith('verified'): raise SystemExit(2)\nasyncio.run(main())\nPY",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "web-build-local-backend",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"esbuild",
+				"BACKEND_URL=http://localhost:8080"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "check-mcu-halo2-endpoint-long",
+			"type": "shell",
+			"command": "node - <<'NODE'\nconst started = Date.now();\nconst resp = await fetch('http://127.0.0.1:8080/api/prove/mcu-halo2', {\n  method: 'POST',\n  headers: {'Content-Type':'application/json'},\n  body: JSON.stringify({program_hex:'010000481501'}),\n});\nconst json = await resp.json();\nconsole.log('http=' + resp.status);\nconsole.log('success=' + json.success);\nconsole.log('proof_kind=' + json.proof_kind);\nconsole.log('proof_version=' + json.proof_version);\nconsole.log('proof_sha256=' + json.proof_sha256);\nconsole.log('public_values_len=' + json.public_values_len);\nconsole.log('proof_data_len=' + json.proof_data_len);\nconsole.log('key_b64_len=' + (json.verifier_key_b64 || '').length);\nconsole.log('proof_b64_len=' + (json.proof_envelope_b64 || '').length);\nconsole.log('ble_service=' + json.ble?.service_uuid);\nconsole.log('ble_chunk_bytes=' + json.ble?.chunk_bytes);\nconsole.log('duration_secs=' + json.duration_secs);\nconsole.log('wall_secs=' + ((Date.now() - started) / 1000).toFixed(1));\nif (!resp.ok || !json.success) {\n  console.log('error=' + json.error);\n  process.exit(2);\n}\nNODE",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "build-rp2350-default",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"build",
+				"-p",
+				"openvm-mcu-rp2350",
+				"--target",
+				"thumbv8m.main-none-eabihf"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-rp2350-default-manifest",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"build",
+				"--manifest-path",
+				"crates/zkvms/openvm/mcu/Cargo.toml",
+				"-p",
+				"openvm-mcu-rp2350",
+				"--target",
+				"thumbv8m.main-none-eabihf"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build-rp2350-ble",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"build",
+				"--manifest-path",
+				"crates/zkvms/openvm/mcu/boards/rp2350/ble/Cargo.toml",
+				"--target",
+				"thumbv8m.main-none-eabihf"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "check-esp32s3-screen",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--manifest-path",
+				"crates/zkvms/openvm/mcu/Cargo.toml",
+				"-p",
+				"openvm-mcu-esp32s3",
+				"--target",
+				"xtensa-esp32s3-espidf"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "check-esp32s3-host",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--manifest-path",
+				"crates/zkvms/openvm/mcu/Cargo.toml",
+				"-p",
+				"openvm-mcu-esp32s3"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build"
+		}
+	]
+}

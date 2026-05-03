@@ -13,6 +13,7 @@ openvm-stark-sdk = { git = "https://github.com/openvm-org/stark-backend.git", ta
 openvm-circuit = { git = "https://github.com/openvm-org/openvm.git", tag = "v2.0.0-beta.2" }
 openvm-continuations = { git = "https://github.com/openvm-org/openvm.git", tag = "v2.0.0-beta.2" }
 openvm-stark-backend = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v2.0.0-beta.2", default-features = false }
+snark-verifier-sdk = { version = "0.2.3", default-features = false, features = ["halo2-axiom", "loader_evm"] }
 
 # Shared dependencies
 eyre = "0.6"
@@ -20,6 +21,7 @@ hex = { version = "0.4", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
+bincode = "1"
 
 # Local crates
 uplc = { path = "../../uplc", default-features = false }

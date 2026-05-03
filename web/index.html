@@ -6,8 +6,9 @@
   <script>
     // Dynamically set base href based on environment
     const hostname = window.location.hostname;
+    const isFile = window.location.protocol === 'file:';
     const isGitHubPages = hostname.includes('github.io');
-    const baseHref = isGitHubPages ? '/cardano-zkvms/' : '/';
+    const baseHref = isFile ? './' : (isGitHubPages ? '/cardano-zkvms/' : '/');
     const base = document.createElement('base');
     base.href = baseHref;
     document.head.insertBefore(base, document.head.firstChild);
@@ -67,6 +68,10 @@
       <div class="pipeline-connector" id="pipeConn3"></div>
       <div class="pipeline-step" id="pipeStep4">
         <span class="step-num">4</span> Verify
+      </div>
+      <div class="pipeline-connector" id="pipeConn4"></div>
+      <div class="pipeline-step" id="pipeStep5">
+        <span class="step-num">5</span> MCU BLE
       </div>
     </div>
 
@@ -230,6 +235,9 @@ test fib_10() {
       </div>
 
       <div class="proof-info" id="proofInfo">Proof, baseline, and verification key will be loaded before the final check.</div>
+      <div class="proof-detail-panel" id="proofDetailPanel" hidden>
+        <div class="proof-detail-grid" id="proofDetailGrid"></div>
+      </div>
 
       <div class="button-row">
         <button class="btn btn-primary" id="starkBtn" disabled>
@@ -239,6 +247,44 @@ test fib_10() {
       <div class="result-box" id="starkResult"></div>
     </div>
     <div class="step-aside">The final check runs inside your browser using the OpenVM WASM verifier. Proof generation still uses the backend, but the proof itself is not sent back to the server for verification.</div>
+    </div>
+
+    <div class="step-row" id="step5Row">
+    <div class="card disabled" id="card5">
+      <div class="card-header">
+        <div class="card-icon">BT</div>
+        <div>
+          <h2>MCU Halo2/KZG Verification</h2>
+          <div class="subtitle">Generate the board-ready proof, send it to a ZKMCU device over BLE, and read the board verdict</div>
+          <div class="exec-badges">
+            <span class="exec-badge remote"><span class="exec-icon">ZK</span> Backend &middot; Halo2/KZG</span>
+            <span class="exec-badge local"><span class="exec-icon">BT</span> ZKMCU &middot; BLE</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="proof-info" id="mcuProofInfo">The MCU should be flashed with BLE verifier firmware and advertising as ZKMCU.</div>
+      <div class="button-row">
+        <button class="btn btn-primary" id="mcuBleBtn" disabled>
+          <span id="mcuBleBtnText">Generate MCU Proof &amp; Send</span>
+        </button>
+        <button class="btn btn-secondary" id="mcuForgetBtn" disabled>
+          <span id="mcuForgetBtnText">Forget MCU</span>
+        </button>
+      </div>
+      <div class="pv-editor" id="mcuPvEditor">
+        <label class="pv-editor-label" for="mcuPvHex">
+          Public values
+          <span class="pv-editor-hint">Computation result committed in the proof. Modify to test rejection.</span>
+        </label>
+        <div class="pv-editor-row">
+          <input id="mcuPvHex" class="pv-editor-input" type="text" spellcheck="false" autocomplete="off" autocorrect="off" placeholder="(available after proof is generated)" readonly>
+          <button class="btn-link" id="mcuPvReset" title="Reset to original value" style="display:none">Reset</button>
+        </div>
+      </div>
+      <div class="result-box" id="mcuBleResult"></div>
+    </div>
+    <div class="step-aside">This path sends the native verifier key and proof envelope that the MCU verifies with Halo2/KZG. No bytecode verifier is involved.</div>
     </div>
 
     <!-- Final Verdict -->

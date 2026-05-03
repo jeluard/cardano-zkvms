@@ -1,0 +1,18 @@
+[package]
+name = "openvm-mcu-device-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "openvm-mcu-verifier-core/std",
+]
+
+[dependencies]
+openvm-mcu-verifier-core.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+openvm-mcu-verifier-core = { workspace = true, features = ["structural-only"] }

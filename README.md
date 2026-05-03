@@ -52,22 +52,97 @@ A simple web UI that evaluates UPLC locally in the browser, sends the program to
 
 The browser verifier needs `agg_stark.vk`. It first tries the deployed static asset, then falls back to the configured backend at `/data/agg_stark.vk`, which keeps the GitHub Pages deployment working even when the key is not bundled into the static site.
 
-# Embedded
+# MCU Verification
 
-An `embedded/` sub-workspace now defines the first device-facing slice of the OpenVM 2 flow:
+`crates/zkvms/openvm/mcu/` contains the embedded-facing OpenVM verifier workspace:
 
-- a `no_std` proof envelope format,
-- a host-side packer that converts `/api/prove` responses into compact framed artifacts,
-- and compile-clean RP2350 / app / verifier scaffolding for the next milestones.
+- `protocol`: `no_std` proof/key envelopes and framed wire format,
+- `verifier-core`: shared verifier boundary, std OpenVM STARK and EVM/Halo2 verification adapters, and fail-closed no-std crypto behavior,
+- `device-app`: board-independent proof handling state machine,
+- `host-tools`: desktop packer for OpenVM STARK/EVM proof and verifier key payloads,
+- `boards/rp2350`, `boards/esp32s3`: target entry crates.
 
 Useful commands:
 
 ```bash
-make embedded-check
-make embedded-test
-make embedded-freeze-fixture
-cargo run --manifest-path embedded/Cargo.toml -p proof-pack -- help
+make mcu-check
+make mcu-nostd-check
+make mcu-test
+make mcu-tool
 ```
+
+For an operator-style terminal view of the current MCU artifacts, run:
+
+```bash
+make mcu-tui
+```
+
+By default this opens a Ratatui dashboard for `MCU_EVM_KEY` and `MCU_EVM_PROOF`, runs the native host verifier, and shows proof metadata plus BLE identifiers when available. To inspect a fresh web backend MCU response directly:
+
+```bash
+make mcu-tui MCU_TUI_ARGS="--backend-response /tmp/openvm-web-mcu-halo2.json"
+```
+
+Inside the dashboard, press `r` to reload artifacts and `q` to quit.
+
+To generate and verify a real OpenVM Halo2/KZG proof on the desktop host path, run:
+
+```bash
+make mcu-evm-e2e
+```
+
+That target builds the OpenVM guest, converts `MCU_PROGRAM_HEX` into flat bytes, runs the real OpenVM Halo2/KZG prover, and checks the generated wrapper proof with the native Halo2/KZG verifier. It does not compile Solidity, execute bytecode, or use `revm`.
+
+To verify that proof on the Waveshare ESP32-S3 itself and render proof details on the onboard display, plug the board in and run:
+
+```bash
+make mcu-esp32s3-flash-halo2-std
+```
+
+That target generates and host-verifies the OpenVM Halo2/KZG proof, packs the verifier key and proof envelope, builds the ESP-IDF/std firmware with the real proof embedded, flashes the first detected `/dev/cu.usbmodem*` port, and the board verifies the proof on silicon. The expected serial markers are:
+
+```text
+openvm-mcu-esp32s3-espidf: proof_status=verified
+openvm-mcu-esp32s3-espidf: display updated
+```
+
+The legacy convenience target still points at the same real on-device verifier path:
+
+```bash
+make mcu-evm-esp32s3-e2e
+```
+
+The screen reports the native host result as metadata and keeps the MCU crypto line tied to the on-device verifier result. It does not draw a green proof state unless the ESP32-S3 firmware verifier accepts the embedded proof.
+
+The web UI also has a BLE path for MCU verification. Start the backend and web UI from a secure browser context (`localhost`, Chrome, or Edge), compile Aiken or provide UPLC hex, then use the `MCU BLE` step. The backend endpoint `/api/prove/mcu-halo2` generates an OpenVM Halo2/KZG proof, natively checks it on the host, packs the `VerifierKey` and `ProofEnvelope`, and the browser sends those envelopes to the ESP32-S3 over BLE. The firmware verifies the received proof with the same native Halo2/KZG verifier on the MCU and returns the status to the web UI. The onboard ST7789 LCD uses Ratatui rendered through mousefood's embedded-graphics backend for BLE receive progress, verifier state, and final proof metadata; the separate `mcu-tui` target remains a host terminal dashboard.
+
+The ESP32-S3 verifier task uses a PSRAM-backed FreeRTOS stack. Keep `CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY` enabled and create the verifier task with `xTaskCreatePinnedToCoreWithCaps(..., MALLOC_CAP_SPIRAM)`; large Rust `std::thread` stacks can fail to spawn from internal RAM before verification starts.
+
+BLE identifiers:
+
+```text
+service  7b7c0001-78f1-4f9a-8b29-6f1f1d95a100
+control  7b7c0002-78f1-4f9a-8b29-6f1f1d95a100
+data     7b7c0003-78f1-4f9a-8b29-6f1f1d95a100
+status   7b7c0004-78f1-4f9a-8b29-6f1f1d95a100
+name     OpenVM MCU
+```
+
+If an experimental image wedges before `app_main()` and `espflash` cannot reconnect, force ROM download mode manually using the Waveshare recovery sequence: hold `BOOT`, plug in USB or tap `RESET`, then release `BOOT` after the USB port appears. If `espflash monitor --before no-reset-no-sync` reports `Secure Download Mode is enabled on this chip`, the board is not in the normal writable download mode over the USB/JTAG serial path; reset normally or repeat the recovery sequence before flashing again.
+
+For pre-generated artifacts, provide the OpenVM proof JSON and generated native verifier metadata, then run:
+
+```bash
+make mcu-evm-verify \
+	MCU_EVM_VERIFIER=/path/to/native-verifier.json \
+	MCU_EVM_PROOF_JSON=/path/to/evm-proof.json
+```
+
+The Halo2/KZG prover is expensive. To avoid regenerating the heavier layers every run, pass existing keys with `MCU_EVM_APP_PK`, `MCU_EVM_AGG_PK`, `MCU_EVM_ROOT_PK`, and `MCU_EVM_HALO2_PK`, or persist newly generated root/Halo2 keys with `MCU_EVM_WRITE_ROOT_PK` and `MCU_EVM_WRITE_HALO2_PK`.
+
+The no-std board targets still need a no-std verifier backend before they can accept a proof directly. The ESP32-S3 ESP-IDF/std target is the validated real-silicon path for native Halo2/KZG verification today.
+
+The ESP32-S3 target is wired for the Waveshare ESP32-S3-Touch-LCD-2. It reports the current proof status over USB/JTAG serial and on the onboard ST7789 SPI display. The onboard CST816 touch controller is I2C-wired on GPIO47/GPIO48 with interrupt on GPIO46; touch input is reserved for status paging once the proof verifier has more states to inspect.
 
 ## Building & Running
 

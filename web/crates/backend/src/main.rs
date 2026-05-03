@@ -1,15 +1,29 @@
 use actix_cors::Cors;
 use actix_web::{web, App, HttpResponse, HttpServer};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use openvm_mcu_verifier_core::{
+    compact_halo2_key_from_native_payload, decode_message, encode_message, ProofEnvelope,
+    ProofKind, VerifierKey, OPENVM_EVM_HALO2_PROOF_DATA_LEN,
+};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use tracing::{error, info};
+
+const MCU_BLE_SERVICE_UUID: &str = "7b7c0001-78f1-4f9a-8b29-6f1f1d95a100";
+const MCU_BLE_CONTROL_UUID: &str = "7b7c0002-78f1-4f9a-8b29-6f1f1d95a100";
+const MCU_BLE_DATA_UUID: &str = "7b7c0003-78f1-4f9a-8b29-6f1f1d95a100";
+const MCU_BLE_STATUS_UUID: &str = "7b7c0004-78f1-4f9a-8b29-6f1f1d95a100";
+const MCU_BLE_CHUNK_BYTES: usize = 180;
 
 fn openvm_version_tag() -> String {
     format!("v{}", openvm_prover::openvm_version())
 }
 
 fn read_version_marker(path: &std::path::Path) -> Option<String> {
-    std::fs::read_to_string(path).ok().map(|value| value.trim().to_string())
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|value| value.trim().to_string())
 }
 
 fn ensure_parent(path: &std::path::Path) -> eyre::Result<()> {
@@ -220,6 +234,63 @@ struct ProveResponse {
     duration_secs: Option<f64>,
 }
 
+/// Response from /api/prove/mcu-halo2.
+#[derive(Debug, Serialize)]
+struct McuHalo2Response {
+    success: bool,
+    openvm_version: String,
+    proof_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proof_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verifier_key_b64: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proof_envelope_b64: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proof_sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    public_values_hex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    public_values_len: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proof_data_len: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ble: Option<McuBleInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proof_json: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    duration_secs: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+struct McuBleInfo {
+    service_uuid: &'static str,
+    control_uuid: &'static str,
+    data_uuid: &'static str,
+    status_uuid: &'static str,
+    chunk_bytes: usize,
+}
+
+/// Request for PATCH /api/patch-envelope.
+#[derive(Deserialize)]
+struct PatchEnvelopeRequest {
+    /// Base64-encoded postcard ProofEnvelope bytes.
+    proof_envelope_b64: String,
+    /// New user_public_values as hex (with or without 0x prefix).
+    public_values_hex: String,
+}
+
+/// Response from PATCH /api/patch-envelope.
+#[derive(Serialize)]
+struct PatchEnvelopeResponse {
+    success: bool,
+    proof_envelope_b64: Option<String>,
+    proof_sha256: Option<String>,
+    error: Option<String>,
+}
+
 /// Response from /api/verify.
 #[derive(Debug, Serialize)]
 struct VerifyResponse {
@@ -277,6 +348,74 @@ fn verify_error(error: String, duration: Option<f64>) -> HttpResponse {
     })
 }
 
+fn mcu_halo2_error(error: String, duration: Option<f64>) -> HttpResponse {
+    HttpResponse::InternalServerError().json(McuHalo2Response {
+        success: false,
+        openvm_version: openvm_version_tag(),
+        proof_kind: "OpenVM Halo2/KZG".into(),
+        proof_version: None,
+        verifier_key_b64: None,
+        proof_envelope_b64: None,
+        proof_sha256: None,
+        public_values_hex: None,
+        public_values_len: None,
+        proof_data_len: None,
+        ble: Some(mcu_ble_info()),
+        proof_json: None,
+        error: Some(error),
+        duration_secs: duration,
+    })
+}
+
+fn mcu_ble_info() -> McuBleInfo {
+    McuBleInfo {
+        service_uuid: MCU_BLE_SERVICE_UUID,
+        control_uuid: MCU_BLE_CONTROL_UUID,
+        data_uuid: MCU_BLE_DATA_UUID,
+        status_uuid: MCU_BLE_STATUS_UUID,
+        chunk_bytes: MCU_BLE_CHUNK_BYTES,
+    }
+}
+
+fn hash32(payload: &[u8]) -> [u8; 32] {
+    Sha256::digest(payload).into()
+}
+
+fn packed_halo2_proof_data(proof_json: &serde_json::Value) -> Result<Vec<u8>, String> {
+    let proof_data = proof_json
+        .get("proof_data")
+        .ok_or_else(|| "missing proof_data".to_string())?;
+    let mut packed = hex_vec(required_json_str(proof_data, "accumulator")?)?;
+    packed.extend(hex_vec(required_json_str(proof_data, "proof")?)?);
+    if packed.len() != OPENVM_EVM_HALO2_PROOF_DATA_LEN {
+        return Err(format!(
+            "invalid packed proof length: got {}, expected {}",
+            packed.len(),
+            OPENVM_EVM_HALO2_PROOF_DATA_LEN
+        ));
+    }
+    Ok(packed)
+}
+
+fn required_json_str<'a>(value: &'a serde_json::Value, key: &str) -> Result<&'a str, String> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| format!("missing or invalid {key}"))
+}
+
+fn hex_vec(value: &str) -> Result<Vec<u8>, String> {
+    hex::decode(value.strip_prefix("0x").unwrap_or(value))
+        .map_err(|error| format!("invalid hex: {error}"))
+}
+
+fn hex32(value: &str) -> Result<[u8; 32], String> {
+    let bytes = hex_vec(value)?;
+    bytes
+        .try_into()
+        .map_err(|_| "expected 32-byte hex value".to_string())
+}
+
 /// POST /api/prove
 ///
 /// Accepts a UPLC program hex, runs it through the OpenVM guest to generate
@@ -285,10 +424,7 @@ fn verify_error(error: String, duration: Option<f64>) -> HttpResponse {
 /// Pipeline (all via SDK API, no subprocess calls):
 ///   1. Execute guest (fast) → get commitment
 ///   2. Generate STARK proof (slow) → proof + commits
-async fn prove(
-    data: web::Data<AppState>,
-    body: web::Json<ProveRequest>,
-) -> HttpResponse {
+async fn prove(data: web::Data<AppState>, body: web::Json<ProveRequest>) -> HttpResponse {
     let program_hex = body.program_hex.trim().to_string();
     let start = std::time::Instant::now();
 
@@ -352,9 +488,8 @@ async fn prove(
 
         // 2. Generate STARK proof (slow — minutes)
         info!("Generating STARK proof (this may take several minutes)...");
-        let prove_result =
-            openvm_prover::prove_stark(&exe, &app_pk, &agg_pk, &program_bytes)
-                .map_err(|e| format!("STARK proof generation failed: {}", e))?;
+        let prove_result = openvm_prover::prove_stark(&exe, &app_pk, &agg_pk, &program_bytes)
+            .map_err(|e| format!("STARK proof generation failed: {}", e))?;
 
         let duration = start.elapsed().as_secs_f64();
         info!("STARK proof generated in {:.1}s", duration);
@@ -385,6 +520,195 @@ async fn prove(
             prove_error(
                 format!("Internal error: {}", e),
                 None,
+                Some(start.elapsed().as_secs_f64()),
+            )
+        }
+    }
+}
+
+/// POST /api/patch-envelope
+///
+/// Decode a postcard-encoded ProofEnvelope, replace user_public_values, and
+/// return the re-encoded bytes as base64. Used by the web UI to let the user
+/// modify the committed computation result without regenerating the proof.
+async fn patch_envelope(body: web::Json<PatchEnvelopeRequest>) -> HttpResponse {
+    let envelope_bytes = match BASE64.decode(&body.proof_envelope_b64) {
+        Ok(b) => b,
+        Err(e) => {
+            return HttpResponse::BadRequest().json(PatchEnvelopeResponse {
+                success: false,
+                proof_envelope_b64: None,
+                proof_sha256: None,
+                error: Some(format!("invalid base64: {e}")),
+            })
+        }
+    };
+
+    let mut envelope: ProofEnvelope = match decode_message(&envelope_bytes) {
+        Ok(e) => e,
+        Err(e) => {
+            return HttpResponse::BadRequest().json(PatchEnvelopeResponse {
+                success: false,
+                proof_envelope_b64: None,
+                proof_sha256: None,
+                error: Some(format!("invalid proof envelope: {e}")),
+            })
+        }
+    };
+
+    let hex_str = body.public_values_hex.trim().trim_start_matches("0x");
+    let new_pv = match hex::decode(hex_str) {
+        Ok(b) => b,
+        Err(e) => {
+            return HttpResponse::BadRequest().json(PatchEnvelopeResponse {
+                success: false,
+                proof_envelope_b64: None,
+                proof_sha256: None,
+                error: Some(format!("invalid hex: {e}")),
+            })
+        }
+    };
+
+    envelope.user_public_values = new_pv;
+
+    let new_bytes = match encode_message(&envelope) {
+        Ok(b) => b,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(PatchEnvelopeResponse {
+                success: false,
+                proof_envelope_b64: None,
+                proof_sha256: None,
+                error: Some(format!("encode failed: {e}")),
+            })
+        }
+    };
+
+    HttpResponse::Ok().json(PatchEnvelopeResponse {
+        success: true,
+        proof_envelope_b64: Some(BASE64.encode(&new_bytes)),
+        proof_sha256: Some(hex::encode(hash32(&new_bytes))),
+        error: None,
+    })
+}
+
+/// POST /api/prove/mcu-halo2
+///
+/// Generate the OpenVM Halo2/KZG proof and native verifier key in the same
+/// envelope format consumed by the ESP32-S3 firmware.
+async fn prove_mcu_halo2(data: web::Data<AppState>, body: web::Json<ProveRequest>) -> HttpResponse {
+    let program_hex = body.program_hex.trim().to_string();
+    let start = std::time::Instant::now();
+
+    let program_bytes = match hex::decode(&program_hex) {
+        Ok(bytes) if !bytes.is_empty() => bytes,
+        Ok(_) => {
+            return HttpResponse::BadRequest().json(McuHalo2Response {
+                success: false,
+                openvm_version: openvm_version_tag(),
+                proof_kind: "OpenVM Halo2/KZG".into(),
+                proof_version: None,
+                verifier_key_b64: None,
+                proof_envelope_b64: None,
+                proof_sha256: None,
+                public_values_hex: None,
+                public_values_len: None,
+                proof_data_len: None,
+                ble: Some(mcu_ble_info()),
+                proof_json: None,
+                error: Some("Empty program".into()),
+                duration_secs: None,
+            });
+        }
+        Err(error) => {
+            return HttpResponse::BadRequest().json(McuHalo2Response {
+                success: false,
+                openvm_version: openvm_version_tag(),
+                proof_kind: "OpenVM Halo2/KZG".into(),
+                proof_version: None,
+                verifier_key_b64: None,
+                proof_envelope_b64: None,
+                proof_sha256: None,
+                public_values_hex: None,
+                public_values_len: None,
+                proof_data_len: None,
+                ble: Some(mcu_ble_info()),
+                proof_json: None,
+                error: Some(format!("Invalid hex: {error}")),
+                duration_secs: None,
+            });
+        }
+    };
+
+    let exe = data.exe.clone();
+    let app_pk = data.app_pk.clone();
+    let agg_pk = data.agg_pk.clone();
+
+    let result = web::block(move || -> Result<McuHalo2Response, String> {
+        info!("Generating MCU Halo2/KZG proof for BLE transfer...");
+        let artifacts =
+            openvm_prover::evm_halo2_mcu::prove_mcu_halo2(&exe, &app_pk, &agg_pk, &program_bytes)
+                .map_err(|error| format!("MCU Halo2/KZG proof generation failed: {error}"))?;
+
+        let proof_json = artifacts.proof_json;
+        let proof_version = required_json_str(&proof_json, "version")?.to_owned();
+        let app_exe_commit = hex32(required_json_str(&proof_json, "app_exe_commit")?)?;
+        let app_vm_commit = hex32(required_json_str(&proof_json, "app_vm_commit")?)?;
+        let user_public_values = hex_vec(required_json_str(&proof_json, "user_public_values")?)?;
+        let proof_data = packed_halo2_proof_data(&proof_json)?;
+
+        let portable_verifier_key = compact_halo2_key_from_native_payload(&artifacts.native_verifier_key)
+            .map_err(|error| format!("failed to compact verifier key for MCU: {error}"))?;
+        let key_id = hash32(&portable_verifier_key);
+        let verifier_key = VerifierKey::new(
+            ProofKind::OpenVmEvmHalo2,
+            key_id,
+            portable_verifier_key,
+        );
+        let proof_envelope = ProofEnvelope::new_evm_halo2(
+            proof_version.clone(),
+            key_id,
+            app_exe_commit,
+            app_vm_commit,
+            user_public_values.clone(),
+            proof_data,
+        );
+
+        let verifier_key_bytes = encode_message(&verifier_key)
+            .map_err(|error| format!("failed to encode verifier key: {error}"))?;
+        let proof_envelope_bytes = encode_message(&proof_envelope)
+            .map_err(|error| format!("failed to encode proof envelope: {error}"))?;
+        let proof_sha256 = hex::encode(hash32(&proof_envelope_bytes));
+        let duration = start.elapsed().as_secs_f64();
+
+        Ok(McuHalo2Response {
+            success: true,
+            openvm_version: openvm_version_tag(),
+            proof_kind: "OpenVM Halo2/KZG".into(),
+            proof_version: Some(proof_version),
+            verifier_key_b64: Some(BASE64.encode(verifier_key_bytes)),
+            proof_envelope_b64: Some(BASE64.encode(proof_envelope_bytes)),
+            proof_sha256: Some(proof_sha256),
+            public_values_hex: Some(hex::encode(&user_public_values)),
+            public_values_len: Some(user_public_values.len()),
+            proof_data_len: Some(proof_envelope.proof_data.len()),
+            ble: Some(mcu_ble_info()),
+            proof_json: Some(proof_json),
+            error: None,
+            duration_secs: Some(duration),
+        })
+    })
+    .await;
+
+    match result {
+        Ok(Ok(response)) => HttpResponse::Ok().json(response),
+        Ok(Err(error)) => {
+            error!("MCU Halo2/KZG pipeline error: {}", error);
+            mcu_halo2_error(error, Some(start.elapsed().as_secs_f64()))
+        }
+        Err(error) => {
+            error!("Blocking MCU Halo2/KZG task error: {}", error);
+            mcu_halo2_error(
+                format!("Internal error: {error}"),
                 Some(start.elapsed().as_secs_f64()),
             )
         }
@@ -429,10 +753,7 @@ async fn serve_agg_stark_vk(data: web::Data<AppState>) -> HttpResponse {
 /// POST /api/verify
 ///
 /// Verify a STARK proof using the server's native OpenVM 2.0 verifier.
-async fn verify(
-    data: web::Data<AppState>,
-    body: web::Json<VerifyRequest>,
-) -> HttpResponse {
+async fn verify(data: web::Data<AppState>, body: web::Json<VerifyRequest>) -> HttpResponse {
     let started_at = std::time::Instant::now();
     let openvm_home = data.openvm_home.clone();
     let proof_json = body.stark_proof_json.clone();
@@ -535,9 +856,7 @@ async fn main() -> std::io::Result<()> {
         .parent()
         .and_then(|p| p.parent())
         .and_then(|p| p.parent())
-        .expect(
-            "Guest dir must be 3 levels deep from workspace root (e.g. crates/zkvms/openvm)",
-        )
+        .expect("Guest dir must be 3 levels deep from workspace root (e.g. crates/zkvms/openvm)")
         .to_path_buf();
 
     // Resolve all paths
@@ -588,10 +907,9 @@ async fn main() -> std::io::Result<()> {
 
     // Load all OpenVM artifacts at startup
     info!("Loading OpenVM artifacts...");
-    let config = openvm_prover::load_config(&config_path)
-        .expect("Failed to load openvm.toml config");
-    let exe = openvm_prover::load_exe(&vmexe_path)
-        .expect("Failed to load guest vmexe");
+    let config =
+        openvm_prover::load_config(&config_path).expect("Failed to load openvm.toml config");
+    let exe = openvm_prover::load_exe(&vmexe_path).expect("Failed to load guest vmexe");
     let app_pk = openvm_prover::load_app_pk(&pk_path).unwrap_or_else(|err| {
         let hint = setup_hint(&guest_dir, &expected_version);
         error!(
@@ -600,7 +918,11 @@ async fn main() -> std::io::Result<()> {
             err,
             hint
         );
-        eprintln!("Failed to load app proving key from {}: {}", pk_path.display(), err);
+        eprintln!(
+            "Failed to load app proving key from {}: {}",
+            pk_path.display(),
+            err
+        );
         eprintln!("{}", hint);
         std::process::exit(1);
     });
@@ -642,7 +964,9 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::JsonConfig::default().limit(10 * 1024 * 1024)) // 10 MB JSON limit
             .route("/api/health", web::get().to(health))
             .route("/api/prove", web::post().to(prove))
-                .route("/api/verify", web::post().to(verify))
+            .route("/api/prove/mcu-halo2", web::post().to(prove_mcu_halo2))
+            .route("/api/patch-envelope", web::post().to(patch_envelope))
+            .route("/api/verify", web::post().to(verify))
             // Serve agg_stark.vk from ~/.openvm/ (generated by `cardano-zkvms setup`)
             .route("/data/agg_stark.vk", web::get().to(serve_agg_stark_vk))
     })

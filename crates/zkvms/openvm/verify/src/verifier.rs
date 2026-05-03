@@ -1,10 +1,8 @@
 use openvm_stark_backend::{
-    keygen::types::MultiStarkVerifyingKey,
-    p3_field::PrimeCharacteristicRing,
-    StarkEngine,
+    keygen::types::MultiStarkVerifyingKey, p3_field::PrimeCharacteristicRing, StarkEngine,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{
-    BabyBearPoseidon2CpuEngine, BabyBearPoseidon2Config as SC, DuplexSponge, DIGEST_SIZE, F,
+    BabyBearPoseidon2Config as SC, BabyBearPoseidon2CpuEngine, DuplexSponge, DIGEST_SIZE, F,
 };
 
 use crate::{
@@ -68,13 +66,11 @@ fn verify_vm_stark_proof_pvs(
     baseline: &VerificationBaseline,
     proof: &VmStarkProof,
 ) -> Result<(), VerifyStarkError> {
-    let verifier_pvs = proof
-        .inner
-        .public_values
-        .get(VERIFIER_PVS_AIR_ID)
-        .ok_or(VerifyStarkError::MissingPublicValues {
+    let verifier_pvs = proof.inner.public_values.get(VERIFIER_PVS_AIR_ID).ok_or(
+        VerifyStarkError::MissingPublicValues {
             air_idx: VERIFIER_PVS_AIR_ID,
-        })?;
+        },
+    )?;
     if verifier_pvs.len() < VERIFIER_BASE_PVS_LEN {
         return Err(VerifyStarkError::InvalidVerifierPvsLength {
             expected: VERIFIER_BASE_PVS_LEN,
@@ -131,13 +127,11 @@ fn verify_vm_stark_proof_pvs(
         &verifier_base_pvs.internal_for_leaf_vk_commit.vk_pre_hash,
     )?;
 
-    let vm_pvs = proof
-        .inner
-        .public_values
-        .get(VM_PVS_AIR_ID)
-        .ok_or(VerifyStarkError::MissingPublicValues {
+    let vm_pvs = proof.inner.public_values.get(VM_PVS_AIR_ID).ok_or(
+        VerifyStarkError::MissingPublicValues {
             air_idx: VM_PVS_AIR_ID,
-        })?;
+        },
+    )?;
     if vm_pvs.len() < VM_PVS_LEN {
         return Err(VerifyStarkError::InvalidVmPvsLength {
             expected: VM_PVS_LEN,
@@ -147,9 +141,11 @@ fn verify_vm_stark_proof_pvs(
 
     let vm_pvs = parse_vm_pvs(&vm_pvs[..VM_PVS_LEN]);
     let hasher = vm_poseidon2_hasher();
-    proof
-        .user_pvs_proof
-        .verify(&hasher, baseline.memory_dimensions, vm_pvs.final_memory_root)?;
+    proof.user_pvs_proof.verify(
+        &hasher,
+        baseline.memory_dimensions,
+        vm_pvs.final_memory_root,
+    )?;
 
     let computed_app_exe_commit = compute_exe_commit(
         &hasher,

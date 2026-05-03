@@ -1,0 +1,33 @@
+[package]
+name = "openvm-mcu-verifier-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["std"]
+std = [
+	"postcard/use-std",
+	"serde/std",
+]
+stark-std = [
+	"std",
+	"dep:openvm-wasm-verifier",
+]
+halo2-std = [
+	"std",
+	"dep:bincode",
+	"dep:serde-value",
+	"dep:snark-verifier-sdk",
+]
+structural-only = []
+
+[dependencies]
+openvm-wasm-verifier = { workspace = true, optional = true }
+snark-verifier-sdk = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+serde-value = { version = "0.7", optional = true }
+halo2curves.workspace = true
+postcard.workspace = true
+serde.workspace = true
+sha3.workspace = true

@@ -1,9 +1,6 @@
 use std::io;
 
-use openvm_stark_backend::{
-    codec::DecodableConfig,
-    p3_util::log2_strict_usize,
-};
+use openvm_stark_backend::{codec::DecodableConfig, p3_util::log2_strict_usize};
 use openvm_stark_sdk::config::baby_bear_poseidon2::F;
 use thiserror::Error;
 

@@ -29,28 +29,36 @@ pub fn verify_stark(
     agg_vk_bytes: &[u8],
     baseline_json: &str,
 ) -> Result<bool, JsValue> {
+    match verify_stark_native(proof_json, agg_vk_bytes, baseline_json) {
+        Ok(()) => Ok(true),
+        Err(error) if error.starts_with("OpenVM verification failed:") => {
+            log(&error);
+            Ok(false)
+        }
+        Err(error) => Err(JsValue::from_str(&error)),
+    }
+}
+
+pub fn verify_stark_native(
+    proof_json: &str,
+    agg_vk_bytes: &[u8],
+    baseline_json: &str,
+) -> Result<(), String> {
     let proof_json: VersionedVmStarkProof = serde_json::from_str(proof_json)
-        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize proof JSON: {}", e)))?;
+        .map_err(|e| format!("Failed to deserialize proof JSON: {}", e))?;
     let proof: VmStarkProof = proof_json
         .try_into()
-        .map_err(|e| JsValue::from_str(&format!("Failed to decode versioned proof: {}", e)))?;
+        .map_err(|e| format!("Failed to decode versioned proof: {}", e))?;
 
-    let agg_vk: MultiStarkVerifyingKey<SC> = bitcode::deserialize(agg_vk_bytes).map_err(|e| {
-        JsValue::from_str(&format!(
-            "Failed to deserialize aggregation verification key: {}",
-            e
-        ))
-    })?;
+    let agg_vk: MultiStarkVerifyingKey<SC> = bitcode::deserialize(agg_vk_bytes)
+        .map_err(|e| format!("Failed to deserialize aggregation verification key: {}", e))?;
     let baseline_json: VerificationBaselineJson = serde_json::from_str(baseline_json)
-        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize verification baseline: {}", e)))?;
+        .map_err(|e| format!("Failed to deserialize verification baseline: {}", e))?;
     let baseline: VerificationBaseline = baseline_json.into();
 
     match verifier::verify_vm_stark_proof_decoded(&agg_vk, &baseline, &proof) {
-        Ok(()) => Ok(true),
-        Err(e) => {
-            log(&format!("OpenVM verification failed: {}", e));
-            Ok(false)
-        }
+        Ok(()) => Ok(()),
+        Err(e) => Err(format!("OpenVM verification failed: {}", e)),
     }
 }
 
